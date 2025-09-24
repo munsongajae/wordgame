@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { logAttempt, saveSession, updateProgress, getWrongWordIdsForSession } from '../services/trackingService';
 import { Word } from '../types/word';
 
 // 정답 효과음 재생 함수
@@ -71,6 +72,8 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
   const [score, setScore] = useState(0);
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
   const [finished, setFinished] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(10);
 
   useEffect(() => {
     if (hasEnough) {
@@ -80,6 +83,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
       setScore(0);
       setWrongQuestions([]);
       setFinished(false);
+      setTimeLeft(10);
     } else {
       setQuestions([]);
       setIndex(0);
@@ -87,8 +91,32 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
       setScore(0);
       setWrongQuestions([]);
       setFinished(false);
+      setTimeLeft(10);
     }
   }, [words, hasEnough]);
+
+  useEffect(() => {
+    if (finished) return;
+    setTimeLeft(10);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (selected === null && current) {
+            const isCorrect = false;
+            playWrongSound();
+            setWrongQuestions(prevW => (prevW.some(w => w.id === current.id) ? prevW : [...prevW, current]));
+            logAttempt({ sessionId, mode: 'meaningQuiz', wordId: current.id, correct: isCorrect });
+            updateProgress({ wordId: current.id, correct: isCorrect });
+            setSelected(-1 as any);
+          }
+        }
+        return Math.max(0, prev - 1);
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, finished]);
 
   const current = questions[index] || null;
 
@@ -103,7 +131,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
   }, [current, words]);
 
   const handleSelect = (optIndex: number) => {
-    if (selected !== null || !current) return;
+    if (selected !== null || !current || timeLeft === 0 || !options[optIndex]) return;
     setSelected(optIndex);
     if (options[optIndex] === current.english) {
       setScore(s => s + 1);
@@ -112,6 +140,9 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
     }
+    // log attempt & SRS
+    logAttempt({ sessionId, mode: 'meaningQuiz', wordId: current.id, correct: options[optIndex] === current.english });
+    updateProgress({ wordId: current.id, correct: options[optIndex] === current.english });
   };
 
   const next = () => {
@@ -121,6 +152,9 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
     }
     if (index + 1 >= questions.length) {
       setFinished(true);
+      if (!sessionId) {
+        saveSession({ mode: 'meaningQuiz', score, total: questions.length }).then(id => setSessionId(id));
+      }
       return;
     }
     setIndex(i => i + 1);
@@ -149,7 +183,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
           minWidth: '80px',
           textAlign: 'center'
         }}>
-          점수: {score}
+          ⏱️ {timeLeft}s | 점수: {score}
         </div>
       </div>
 
@@ -175,7 +209,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
                   key={`${current.id}_${i}`}
                   onClick={() => handleSelect(i)}
                   className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
-                  disabled={selected !== null}
+                  disabled={selected !== null || timeLeft === 0}
                   style={{
                     fontSize: 28,
                     lineHeight: '1.2',
@@ -214,18 +248,18 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
             <button 
               className="next-button" 
               onClick={next} 
-              disabled={selected === null}
+              disabled={selected === null && timeLeft > 0}
               style={{
                 padding: '16px 32px',
                 fontSize: '18px',
                 fontWeight: 'bold',
-                backgroundColor: selected === null ? '#ccc' : '#4CAF50',
+                backgroundColor: (selected === null && timeLeft > 0) ? '#ccc' : '#4CAF50',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
-                cursor: selected === null ? 'not-allowed' : 'pointer',
+                cursor: (selected === null && timeLeft > 0) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
-                boxShadow: selected === null ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
+                boxShadow: (selected === null && timeLeft > 0) ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
                 minWidth: '120px'
               }}
             >
@@ -248,10 +282,21 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
             점수: {score} / {questions.length}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
-            {wrongQuestions.length > 0 && (
+            {(wrongQuestions.length > 0 || sessionId) && (
               <button
-                onClick={() => {
-                  setQuestions(wrongQuestions);
+                onClick={async () => {
+                  let retryWords = wrongQuestions;
+                  if (sessionId) {
+                    try {
+                      const ids = await getWrongWordIdsForSession(sessionId);
+                      if (ids.length > 0) {
+                        const dict = new Map(words.map(w => [w.id, w] as const));
+                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof words;
+                      }
+                    } catch {}
+                  }
+                  if (retryWords.length === 0) return;
+                  setQuestions(retryWords);
                   setWrongQuestions([]);
                   setIndex(0);
                   setSelected(null);
@@ -267,7 +312,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
                   cursor: 'pointer'
                 }}
               >
-                틀린 문제 다시 풀기 ({wrongQuestions.length})
+                틀린 문제 다시 풀기
               </button>
             )}
             <button

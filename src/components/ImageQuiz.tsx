@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { logAttempt, saveSession, updateProgress, getWrongWordIdsForSession } from '../services/trackingService';
 import { Word } from '../types/word';
 
 // 정답 효과음 재생 함수
@@ -75,6 +76,8 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
   const [finished, setFinished] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(10);
 
   useEffect(() => {
     if (hasEnough) {
@@ -84,6 +87,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
       setScore(0);
       setWrongQuestions([]);
       setFinished(false);
+      setTimeLeft(10);
     } else {
       setQuestions([]);
       setIndex(0);
@@ -91,8 +95,36 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
       setScore(0);
       setWrongQuestions([]);
       setFinished(false);
+      setTimeLeft(10);
     }
   }, [eligible, hasEnough]);
+
+  // 10초 타이머
+  useEffect(() => {
+    if (finished) return;
+    setTimeLeft(10);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          // 시간 초과 처리: 아직 선택 안 했다면 오답 처리
+          if (selected === null && current) {
+            const cur = current; // snapshot to avoid stale/undefined references
+            const isCorrect = false;
+            playWrongSound();
+            setWrongQuestions(prevW => (cur && prevW.some(w => w.id === cur.id) ? prevW : cur ? [...prevW, cur] : prevW));
+            try { if (cur) logAttempt({ sessionId, mode: 'imageQuiz', wordId: cur.id, correct: isCorrect }); } catch {}
+            try { if (cur) updateProgress({ wordId: cur.id, correct: isCorrect }); } catch {}
+            // 표시만 하고 다음은 사용자가 '다음'을 눌러 진행
+            setSelected(-1 as any);
+          }
+        }
+        return Math.max(0, prev - 1);
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, finished]);
 
   const current = questions[index] || null;
 
@@ -107,7 +139,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
   }, [current, eligible]);
 
   const handleSelect = (optIndex: number) => {
-    if (selected !== null || !current) return;
+    if (selected !== null || !current || !options[optIndex] || timeLeft === 0) return;
     setSelected(optIndex);
     if (options[optIndex].id === current.id) {
       setScore(s => s + 1);
@@ -116,6 +148,9 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
     }
+    // log attempt & SRS
+    logAttempt({ sessionId, mode: 'imageQuiz', wordId: current.id, correct: options[optIndex].id === current.id });
+    updateProgress({ wordId: current.id, correct: options[optIndex].id === current.id });
   };
 
   const next = () => {
@@ -125,6 +160,9 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
     }
     if (index + 1 >= questions.length) {
       setFinished(true);
+      if (!sessionId) {
+        saveSession({ mode: 'imageQuiz', score, total: questions.length }).then(id => setSessionId(id));
+      }
       return;
     }
     setIndex(i => i + 1);
@@ -187,7 +225,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
           minWidth: '80px',
           textAlign: 'center'
         }}>
-          점수: {score}
+          ⏱️ {timeLeft}s | 점수: {score}
         </div>
       </div>
 
@@ -236,7 +274,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
                   key={w.id}
                   onClick={() => handleSelect(i)}
                   className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
-                  disabled={selected !== null}
+                  disabled={selected !== null || timeLeft === 0}
                   style={{
                     fontSize: 28,
                     lineHeight: '1.2',
@@ -275,18 +313,18 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
             <button 
               className="next-button" 
               onClick={next} 
-              disabled={selected === null}
+              disabled={selected === null && timeLeft > 0}
               style={{
                 padding: '16px 32px',
                 fontSize: '18px',
                 fontWeight: 'bold',
-                backgroundColor: selected === null ? '#ccc' : '#4CAF50',
+                backgroundColor: (selected === null && timeLeft > 0) ? '#ccc' : '#4CAF50',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
-                cursor: selected === null ? 'not-allowed' : 'pointer',
+                cursor: (selected === null && timeLeft > 0) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
-                boxShadow: selected === null ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
+                boxShadow: (selected === null && timeLeft > 0) ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
                 minWidth: '120px'
               }}
             >
@@ -309,10 +347,21 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
             점수: {score} / {questions.length}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
-            {wrongQuestions.length > 0 && (
+            {(wrongQuestions.length > 0 || sessionId) && (
               <button
-                onClick={() => {
-                  setQuestions(wrongQuestions);
+                onClick={async () => {
+                  let retryWords = wrongQuestions;
+                  if (sessionId) {
+                    try {
+                      const ids = await getWrongWordIdsForSession(sessionId);
+                      if (ids.length > 0) {
+                        const dict = new Map(eligible.map(w => [w.id, w] as const));
+                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof eligible;
+                      }
+                    } catch {}
+                  }
+                  if (retryWords.length === 0) return;
+                  setQuestions(retryWords);
                   setWrongQuestions([]);
                   setIndex(0);
                   setSelected(null);
@@ -328,7 +377,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
                   cursor: 'pointer'
                 }}
               >
-                틀린 문제 다시 풀기 ({wrongQuestions.length})
+                틀린 문제 다시 풀기
               </button>
             )}
             <button

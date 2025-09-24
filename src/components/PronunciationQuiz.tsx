@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { logAttempt, saveSession, updateProgress, getWrongWordIdsForSession } from '../services/trackingService';
 import { Word } from '../types/word';
 import { GeminiService } from '../services/geminiService';
 import './PronunciationPractice.css';
@@ -95,6 +96,7 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
   const [result, setResult] = useState<any>(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   if (words.length === 0) {
     return (
@@ -153,6 +155,9 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
       if (analysisResult.accuracy >= 70) {
         setScore(s => s + 1);
       }
+      const correct = analysisResult.accuracy >= 70;
+      logAttempt({ sessionId, mode: 'pronunciation', wordId: current.id, correct, accuracy: analysisResult.accuracy });
+      updateProgress({ wordId: current.id, correct });
     } catch (error) {
       console.error('발음 분석 오류:', error);
       alert('발음 분석에 실패했습니다. 다시 시도해주세요.');
@@ -164,6 +169,9 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
   const next = () => {
     if (index + 1 >= questions.length) {
       setFinished(true);
+      if (!sessionId) {
+        saveSession({ mode: 'pronunciation', score, total: questions.length }).then(id => setSessionId(id));
+      }
       return;
     }
     setIndex(i => i + 1);
@@ -341,6 +349,37 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
             점수: {score} / {questions.length}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
+            {sessionId && (
+              <button
+                onClick={async () => {
+                  try {
+                    const ids = await getWrongWordIdsForSession(sessionId);
+                    if (ids.length === 0) return;
+                    const dict = new Map(questions.map(w => [w.id, w] as const));
+                    const retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof questions;
+                    if (retryWords.length === 0) return;
+                    setIndex(0);
+                    // reuse pick order as provided from DB
+                    // we cannot set questions directly because we built it via useMemo initially;
+                    // create local copy
+                    (questions as any).splice(0, questions.length, ...retryWords);
+                    setFinished(false);
+                    setResult(null);
+                    setUserInput('');
+                  } catch {}
+                }}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+              >
+                틀린 문제 다시 풀기
+              </button>
+            )}
             <button
               onClick={onBack}
               style={{

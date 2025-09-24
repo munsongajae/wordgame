@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import WordList from './components/WordList';
 import PronunciationQuiz from './components/PronunciationQuiz';
+import Dashboard from './components/Dashboard';
 import ImageQuiz from './components/ImageQuiz';
 import SpellingQuiz from './components/SpellingQuiz';
 import MeaningQuiz from './components/MeaningQuiz';
 import { Word } from './types/word';
 import { GoogleSheetsService } from './services/googleSheetsService';
 import './App.css';
+import { getCurrentUserName, setCurrentUserByName } from './services/supabaseClient';
 
 type AppMode = 'sourceSelection' | 'wordList' | 'pronunciation' | 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz';
+type AppModeExtended = AppMode | 'dashboard' | 'userSelection';
 
 function App() {
   const [words, setWords] = useState<Word[]>([]);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
-  const [mode, setMode] = useState<AppMode>('sourceSelection');
+  const [mode, setMode] = useState<AppModeExtended>('userSelection');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('전체');
+  const [currentUserName, setCurrentUserName] = useState<'열음' | '지음'>(getCurrentUserName());
 
   // 앱 시작 시 전체 데이터 자동 로드
   useEffect(() => {
@@ -230,7 +234,7 @@ function App() {
 
         <main className="app-main">
           <div className="source-selection">
-            <h2>📚 학습할 단어 출처를 선택하세요</h2>
+            <h2>📚 학습할 단어 교재를 선택하세요</h2>
             <p>구글 시트의 D열 분류 기준에 따라 단어를 불러옵니다.</p>
             
             <div className="source-buttons">
@@ -322,6 +326,43 @@ function App() {
     return <MeaningQuiz words={words} onBack={handleBackToWordList} />;
   }
 
+  if (mode === 'dashboard') {
+    return <Dashboard onBack={handleBackToWordList} />;
+  }
+
+  // 사용자 선택 전용 화면
+  if (mode === 'userSelection') {
+    return (
+      <div className="app-container">
+        <header className="app-header">
+          <div className="header-content">
+            <div className="header-main" style={{ width: '100%' }}>
+              <h1>🌍 세계 여행을 위한 영어 공부</h1>
+              <p>🎯 곰이 난이 버킷 리스트 이루기</p>
+              <div className="header-controls" style={{ marginTop: 24 }}>
+                <div className="user-switch">
+                  <button
+                    className={currentUserName === '열음' ? 'active' : ''}
+                    onClick={() => { setCurrentUserByName('열음'); setCurrentUserName('열음'); setMode('sourceSelection'); }}
+                  >
+                    열음
+                  </button>
+                  <button
+                    className={currentUserName === '지음' ? 'active' : ''}
+                    onClick={() => { setCurrentUserByName('지음'); setCurrentUserName('지음'); setMode('sourceSelection'); }}
+                  >
+                    지음
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="header-actions" />
+          </div>
+        </header>
+      </div>
+    );
+  }
+
   
 
   return (
@@ -331,28 +372,34 @@ function App() {
           <div className="header-main">
             <h1>🌍 세계 여행을 위한 영어 공부</h1>
             <p>🎯 곰이 난이 버킷 리스트 이루기</p>
+            {/* 중앙 컨트롤 영역 */}
+            <div className="header-controls">
+              <div className="user-switch">
+                <button
+                  className={currentUserName === '열음' ? 'active' : ''}
+                  onClick={() => { setCurrentUserByName('열음'); setCurrentUserName('열음'); }}
+                >
+                  열음
+                </button>
+                <button
+                  className={currentUserName === '지음' ? 'active' : ''}
+                  onClick={() => { setCurrentUserByName('지음'); setCurrentUserName('지음'); }}
+                >
+                  지음
+                </button>
+              </div>
+              <button className="back-to-source-button" onClick={() => setMode('dashboard')}>📊 대시보드</button>
+            </div>
           </div>
-          <div className="header-actions">
-            <button 
-              className="back-to-source-button"
-              onClick={handleBackToSourceSelection}
-            >
-              ← 출처 선택으로
-            </button>
-          </div>
+          <div className="header-actions"></div>
         </div>
-        {selectedSource && (
-          <div className="source-info">
-            <span className="source-badge">📚 {selectedSource}</span>
-            <span className="word-count">단어 {words.length}개</span>
-          </div>
-        )}
+        {/* 출처/단어 수 배지 제거 */}
       </header>
 
       <main className="app-main">
         {/* 출처 선택 버튼들 */}
         <div className="source-filter-buttons">
-          <h3>📚 출처 선택</h3>
+          <h3>📚 교재 선택</h3>
           <div className="source-filter-container">
             <button 
               className={`source-filter-button ${selectedSource === '전체' ? 'active' : ''}`}

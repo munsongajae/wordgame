@@ -50,6 +50,20 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
   return (
     <div className="word-list-container">
       <h2>단어 목록 ({words.length}개)</h2>
+      <div
+        style={{
+          color: '#1a237e',
+          fontSize: 16,
+          fontWeight: 700,
+          margin: '8px 0 12px 0',
+          background: 'rgba(25,118,210,0.08)',
+          padding: '8px 12px',
+          borderRadius: 8,
+          display: 'inline-block'
+        }}
+      >
+        🔊 단어를 누르면 발음이 재생됩니다
+      </div>
       <div className="word-list">
         {words.map((word) => (
           <div

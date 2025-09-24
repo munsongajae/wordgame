@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { logAttempt, saveSession, updateProgress, getWrongWordIdsForSession } from '../services/trackingService';
 import { Word } from '../types/word';
 
 // 정답 효과음 재생 함수
@@ -80,6 +81,8 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
   const [showImage, setShowImage] = useState(true); // true: 그림, false: 한글
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
   const [finished, setFinished] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(10);
 
   useEffect(() => {
     const qs = pickRandom(words, Math.min(NUM_QUESTIONS, words.length));
@@ -91,7 +94,32 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     setShowImage(true);
     setWrongQuestions([]);
     setFinished(false);
+    setSessionId(null);
+    setTimeLeft(10);
   }, [words]);
+
+  useEffect(() => {
+    if (finished) return;
+    setTimeLeft(10);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (checked === null && currentQuestion) {
+            const isCorrect = false;
+            playWrongSound();
+            setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
+            logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
+            updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
+            setChecked(false);
+          }
+        }
+        return Math.max(0, prev - 1);
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, finished]);
 
   // 4지 선다형 선택지 생성
   const currentQuestion = useMemo(() => {
@@ -115,6 +143,17 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     };
   }, [questions, index, words]);
 
+  const speakCurrentWord = () => {
+    if (!currentQuestion) return;
+    if ('speechSynthesis' in window) {
+      const utter = new SpeechSynthesisUtterance(currentQuestion.word.english);
+      utter.lang = 'en-US';
+      utter.rate = 0.9;
+      utter.pitch = 1;
+      window.speechSynthesis.speak(utter);
+    }
+  };
+
   if (words.length === 0 || !currentQuestion) {
     return (
       <div className="quiz-container">
@@ -125,7 +164,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
   }
 
   const handleAnswerSelect = (option: Word) => {
-    if (checked !== null) return; // 이미 답을 확인한 경우
+    if (checked !== null || timeLeft === 0) return; // 이미 답을 확인한 경우
     
     setSelectedAnswer(option.english);
     const isCorrect = option.english === currentQuestion.correctAnswer;
@@ -137,11 +176,18 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
     }
+    // Log attempt & SRS update
+    logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
+    updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
   };
 
   const next = () => {
     if (index + 1 >= questions.length) {
       setFinished(true);
+      // Save session once per completion
+      if (!sessionId) {
+        saveSession({ mode: 'spellingQuiz', score, total: questions.length }).then(id => setSessionId(id));
+      }
       return;
     }
     setIndex(i => i + 1);
@@ -172,14 +218,32 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           minWidth: '80px',
           textAlign: 'center'
         }}>
-          점수: {score}
+          ⏱️ {timeLeft}s | 점수: {score}
         </div>
       </div>
 
-      {!finished && (
+      
+
+      {!finished && currentQuestion && (
         <div className="question-card" style={{ textAlign: 'center' }}>
         <div className="question-text">다음 철자를 보고 올바른 단어를 선택하세요</div>
-          <div style={{ fontSize: 48, fontWeight: 800, margin: '12px 0', color: '#1e88e5' }}>{currentQuestion.word.english}</div>
+          <div style={{ fontSize: 48, fontWeight: 800, margin: '12px 0 6px 0', color: '#1e88e5' }}>{currentQuestion.word.english}</div>
+          <div style={{ textAlign: 'center', marginBottom: 10 }}>
+            <button
+              onClick={speakCurrentWord}
+              style={{
+                padding: '10px 16px',
+                fontSize: 14,
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer'
+              }}
+            >
+              🔊 발음 듣기
+            </button>
+          </div>
         
         {/* 표시 방식 선택 버튼 */}
         <div style={{ textAlign: 'center', margin: '16px 0' }}>
@@ -224,7 +288,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
               <button
                 key={optionIndex}
                 onClick={() => handleAnswerSelect(option)}
-                disabled={checked !== null}
+                disabled={checked !== null || timeLeft === 0}
                 style={{
                   padding: '10px 20px',
                   fontSize: '26px',
@@ -290,18 +354,18 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           <button 
             className="next-button" 
             onClick={next} 
-            disabled={checked === null}
+            disabled={checked === null && timeLeft > 0}
             style={{
               padding: '16px 32px',
               fontSize: '18px',
               fontWeight: 'bold',
-              backgroundColor: checked === null ? '#ccc' : '#4CAF50',
+              backgroundColor: (checked === null && timeLeft > 0) ? '#ccc' : '#4CAF50',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: checked === null ? 'not-allowed' : 'pointer',
+              cursor: (checked === null && timeLeft > 0) ? 'not-allowed' : 'pointer',
               transition: 'all 0.3s ease',
-              boxShadow: checked === null ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
+              boxShadow: (checked === null && timeLeft > 0) ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
               minWidth: '120px'
             }}
           >
@@ -324,10 +388,23 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
             점수: {score} / {questions.length}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
-            {wrongQuestions.length > 0 && (
+            {(wrongQuestions.length > 0 || sessionId) && (
               <button
-                onClick={() => {
-                  setQuestions(wrongQuestions);
+                onClick={async () => {
+                  let retryWords = wrongQuestions;
+                  if (sessionId) {
+                    try {
+                      const ids = await getWrongWordIdsForSession(sessionId);
+                      if (ids.length > 0) {
+                        const dict = new Map(words.map(w => [w.id, w] as const));
+                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof words;
+                      }
+                    } catch (e) {
+                      // ignore and fallback to local wrongQuestions
+                    }
+                  }
+                  if (retryWords.length === 0) return;
+                  setQuestions(retryWords);
                   setWrongQuestions([]);
                   setIndex(0);
                   setSelectedAnswer(null);
@@ -345,7 +422,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                   cursor: 'pointer'
                 }}
               >
-                틀린 문제 다시 풀기 ({wrongQuestions.length})
+                틀린 문제 다시 풀기
               </button>
             )}
             <button

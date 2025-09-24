@@ -333,9 +333,14 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
           </div>
           
           {selected !== null && (
-            <div style={{ marginTop: 12, fontWeight: 700, color: selected !== null && options[selected].id === current.id ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
-              {selected !== null && options[selected].id === current.id ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
-            </div>
+            (() => {
+              const isCorrect = (selected as number) >= 0 && options[(selected as number)] && options[(selected as number)].id === current.id;
+              return (
+                <div style={{ marginTop: 12, fontWeight: 700, color: isCorrect ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
+                  {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
+                </div>
+              );
+            })()
           )}
         </>
       )}

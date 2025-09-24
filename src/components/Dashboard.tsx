@@ -18,6 +18,7 @@ export default function Dashboard({ onBack }: DashboardProps) {
   const [wrongs7d, setWrongs7d] = useState<AttemptAgg[]>([]);
   const [dueToday, setDueToday] = useState<ProgressRow[]>([]);
   const [wordDict, setWordDict] = useState<Map<string, Word>>(new Map());
+  const [showClearWeakWordsConfirm, setShowClearWeakWordsConfirm] = useState(false);
 
   const userId = getOrCreateAnonUserId();
   const userName = getCurrentUserName();
@@ -48,7 +49,7 @@ export default function Dashboard({ onBack }: DashboardProps) {
             .select('id, mode, score, total, duration_sec, created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
-            .limit(10),
+            .limit(50),
           supabase
             .rpc('exec_sql', { sql: `select word_id, count(*) as wrongs from attempts where user_id = '${userId}' and correct = false and created_at >= now() - interval '7 days' group by word_id order by wrongs desc limit 20;` })
             .select('*'),
@@ -130,6 +131,31 @@ export default function Dashboard({ onBack }: DashboardProps) {
     }
   }
 
+  async function clearWeakWords() {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      // 최근 7일 오답 기록 삭제
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('attempts')
+        .delete()
+        .eq('user_id', userId)
+        .eq('correct', false)
+        .gte('created_at', sevenDaysAgo);
+      
+      if (error) throw error;
+      
+      // 상태 업데이트
+      setWrongs7d([]);
+      setShowClearWeakWordsConfirm(false);
+      alert('약한 단어 기록이 초기화되었습니다.');
+    } catch (e: any) {
+      console.error('clearWeakWords error', e);
+      alert('약한 단어 초기화에 실패했어요. 다시 시도해주세요.');
+    }
+  }
+
   return (
     <div className="app-main" style={{ maxWidth: 980, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -152,44 +178,174 @@ export default function Dashboard({ onBack }: DashboardProps) {
 
       <section style={{ marginBottom: 20 }}>
         <h3>🧩 최근 세션</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-          {sessions.map(s => (
-            <div key={s.id} style={{ background: '#fff', borderRadius: 12, padding: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontWeight: 700 }}>{labelMode(s.mode)}</div>
+        <div 
+          className="session-list-container"
+          style={{ 
+            maxHeight: '400px', 
+            overflowY: 'auto', 
+            border: '1px solid #e0e0e0', 
+            borderRadius: '12px',
+            backgroundColor: '#fafafa',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#c0c0c0 #f0f0f0'
+          }}
+        >
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            padding: '12px'
+          }}>
+            {sessions.map(s => (
+              <div key={s.id} style={{ 
+                background: '#fff', 
+                borderRadius: '8px', 
+                padding: '12px', 
+                boxShadow: '0 1px 4px rgba(0,0,0,0.1)', 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ fontWeight: 700, color: '#333' }}>{labelMode(s.mode)}</div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#666',
+                      backgroundColor: '#f0f0f0',
+                      padding: '2px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      {s.score}/{s.total}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#888' }}>
+                    <span>⏱️ {s.duration_sec || 0}초</span>
+                    <span>📅 {new Date(s.created_at).toLocaleDateString()}</span>
+                    <span>🕐 {new Date(s.created_at).toLocaleTimeString()}</span>
+                  </div>
+                </div>
                 <button
                   onClick={() => deleteSession(s.id)}
                   style={{
-                    background: '#ff5252', color: '#fff', border: 'none', borderRadius: 8,
-                    padding: '6px 10px', cursor: 'pointer'
+                    background: '#ff5252', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '6px',
+                    padding: '6px 12px', 
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    transition: 'background-color 0.2s ease'
                   }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ff5252'}
                   title="세션 삭제"
                 >
-                  삭제
+                  🗑️
                 </button>
               </div>
-              <div>점수: {s.score} / {s.total}</div>
-              <div>시간: {s.duration_sec || 0}초</div>
-              <div style={{ color: '#666', fontSize: 12 }}>{new Date(s.created_at).toLocaleString()}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+        {sessions.length === 0 && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px', 
+            color: '#666',
+            backgroundColor: '#fafafa',
+            borderRadius: '12px',
+            border: '1px solid #e0e0e0'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
+            <p>아직 세션이 없습니다.</p>
+            <p style={{ fontSize: '14px' }}>퀴즈를 풀어보세요!</p>
+          </div>
+        )}
       </section>
 
       <section style={{ marginBottom: 20 }}>
-        <h3>⚠️ 약한 단어(최근 7일 오답 상위)</h3>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '12px'
+        }}>
+          <h3 style={{ margin: 0 }}>⚠️ 약한 단어(최근 7일 오답 상위)</h3>
+          {wrongs7d.length > 0 && (
+            <button
+              onClick={() => setShowClearWeakWordsConfirm(true)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#ff5252',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                transition: 'background-color 0.2s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ff5252'}
+              title="약한 단어 기록 초기화"
+            >
+              🗑️ 초기화
+            </button>
+          )}
+        </div>
         {wrongs7d.length === 0 ? (
-          <div style={{ color: '#666' }}>최근 7일 오답이 없습니다.</div>
+          <div style={{ 
+            color: '#666', 
+            textAlign: 'center',
+            padding: '20px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #e9ecef'
+          }}>
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>✅</div>
+            <p>최근 7일 오답이 없습니다.</p>
+            <p style={{ fontSize: '14px' }}>훌륭해요! 계속 열심히 공부하세요!</p>
+          </div>
         ) : (
-          <ul>
-            {wrongs7d.map(r => {
-              const w = wordDict.get(r.word_id);
-              const label = w ? `${w.english}${w.korean ? ' ('+w.korean+')' : ''}` : r.word_id;
-              return (
-                <li key={r.word_id} style={{ lineHeight: '1.8' }}>{label} — 오답 {r.wrongs}회</li>
-              );
-            })}
-          </ul>
+          <div style={{ 
+            border: '1px solid #e9ecef', 
+            borderRadius: '8px',
+            backgroundColor: '#fafafa'
+          }}>
+            <ul style={{ 
+              margin: 0, 
+              padding: '12px',
+              maxHeight: '200px',
+              overflowY: 'auto'
+            }}>
+              {wrongs7d.map((r, index) => {
+                const w = wordDict.get(r.word_id);
+                const label = w ? `${w.english}${w.korean ? ' ('+w.korean+')' : ''}` : r.word_id;
+                return (
+                  <li key={r.word_id} style={{ 
+                    lineHeight: '1.8',
+                    padding: '4px 0',
+                    borderBottom: index < wrongs7d.length - 1 ? '1px solid #eee' : 'none',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>{label}</span>
+                    <span style={{ 
+                      color: '#ff5252', 
+                      fontWeight: 'bold',
+                      backgroundColor: '#fff5f5',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px'
+                    }}>
+                      오답 {r.wrongs}회
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </section>
 
@@ -209,6 +365,66 @@ export default function Dashboard({ onBack }: DashboardProps) {
           </ul>
         )}
       </section>
+
+      {/* 약한 단어 초기화 확인 다이얼로그 */}
+      {showClearWeakWordsConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ marginTop: 0, color: '#333' }}>
+              ⚠️ 약한 단어 기록 초기화
+            </h3>
+            <p style={{ color: '#666', marginBottom: '20px' }}>
+              최근 7일간의 오답 기록을 모두 삭제하시겠습니까?<br/>
+              이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowClearWeakWordsConfirm(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={clearWeakWords}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                초기화
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,13 +5,15 @@ import Dashboard from './components/Dashboard';
 import ImageQuiz from './components/ImageQuiz';
 import SpellingQuiz from './components/SpellingQuiz';
 import MeaningQuiz from './components/MeaningQuiz';
+import CombinedQuiz from './components/CombinedQuiz';
+import Ranking from './components/Ranking';
 import { Word } from './types/word';
 import { GoogleSheetsService } from './services/googleSheetsService';
 import './App.css';
 import { getCurrentUserName, setCurrentUserByName } from './services/supabaseClient';
 
 type AppMode = 'sourceSelection' | 'wordList' | 'pronunciation' | 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz';
-type AppModeExtended = AppMode | 'dashboard' | 'userSelection';
+type AppModeExtended = AppMode | 'dashboard' | 'userSelection' | 'combinedQuiz' | 'ranking';
 
 function App() {
   const [words, setWords] = useState<Word[]>([]);
@@ -21,11 +23,35 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('전체');
   const [currentUserName, setCurrentUserName] = useState<'열음' | '지음'>(getCurrentUserName());
+  const [showTtsSettings, setShowTtsSettings] = useState(false);
+  const [ttsRate, setTtsRate] = useState<number>(1.0);
+  const [ttsGender, setTtsGender] = useState<'default' | 'male' | 'female'>('default');
+  const [ttsAccent, setTtsAccent] = useState<'us' | 'uk'>('us');
 
   // 앱 시작 시 전체 데이터 자동 로드
   useEffect(() => {
     loadWords('전체');
   }, []);
+
+  // 전역 TTS 설정 로드
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ttsSettings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.rate === 'number') setTtsRate(parsed.rate);
+        if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') setTtsGender(parsed.gender);
+        if (parsed.accent === 'us' || parsed.accent === 'uk') setTtsAccent(parsed.accent);
+      }
+    } catch {}
+  }, []);
+
+  // 전역 TTS 설정 저장
+  useEffect(() => {
+    try {
+      localStorage.setItem('ttsSettings', JSON.stringify({ rate: ttsRate, gender: ttsGender, accent: ttsAccent }));
+    } catch {}
+  }, [ttsRate, ttsGender, ttsAccent]);
 
   // 출처 선택 후 단어 로드
   const loadWordsBySource = async (source: string) => {
@@ -223,14 +249,13 @@ function App() {
     return (
       <div className="app-container">
         <header className="app-header">
-          <h1>🌍 세계 여행을 위한 영어 공부</h1>
-          <p>🎯 곰이 난이 버킷 리스트 이루기</p>
+          <h1>🌍 세계 여행을 위한<br />{currentUserName}의 영어 공부</h1>
         </header>
 
         <main className="app-main">
           <div className="source-selection">
             <h2>📚 학습할 단어 교재를 선택하세요</h2>
-            <p>구글 시트의 D열 분류 기준에 따라 단어를 불러옵니다.</p>
+
             
             <div className="source-buttons">
               <button 
@@ -321,8 +346,16 @@ function App() {
     return <MeaningQuiz words={words} onBack={handleBackToWordList} />;
   }
 
+  if (mode === 'combinedQuiz') {
+    return <CombinedQuiz words={words} onBack={handleBackToWordList} />;
+  }
+
   if (mode === 'dashboard') {
     return <Dashboard onBack={handleBackToWordList} />;
+  }
+
+  if (mode === 'ranking') {
+    return <Ranking onBack={handleBackToWordList} />;
   }
 
   // 사용자 선택 전용 화면
@@ -332,8 +365,7 @@ function App() {
         <header className="app-header">
           <div className="header-content">
             <div className="header-main" style={{ width: '100%' }}>
-              <h1>🌍 세계 여행을 위한 영어 공부</h1>
-              <p>🎯 곰이 난이 버킷 리스트 이루기</p>
+              <h1>🌍 세계 여행을 위한<br />{currentUserName}의 영어 공부</h1>
               <div className="header-controls" style={{ marginTop: 24 }}>
                 <div className="user-switch">
                   <button
@@ -365,8 +397,7 @@ function App() {
       <header className="app-header">
         <div className="header-content">
           <div className="header-main">
-            <h1>🌍 세계 여행을 위한 영어 공부</h1>
-            <p>🎯 곰이 난이 버킷 리스트 이루기</p>
+            <h1>🌍 세계 여행을 위한<br />{currentUserName}의 영어 공부</h1>
             {/* 중앙 컨트롤 영역 */}
             <div className="header-controls">
               <div className="user-switch">
@@ -383,10 +414,73 @@ function App() {
                   지음
                 </button>
               </div>
-              <button className="back-to-source-button" onClick={() => setMode('dashboard')}>📊 대시보드</button>
+            <button className="back-to-source-button" onClick={() => setMode('dashboard')}>📊 내 점수</button>
+            <button className="back-to-source-button" onClick={() => setMode('ranking')} style={{ marginLeft: 8 }}>🏆 순위</button>
+            <div style={{ position: 'relative', display: 'inline-block', marginLeft: 8 }}>
+              <button className="back-to-source-button" onClick={() => setShowTtsSettings(s => !s)}>⚙️ 발음 설정</button>
+              {showTtsSettings && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  zIndex: 1000,
+                  marginTop: 8,
+                  backgroundColor: '#fafafa',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 12,
+                  padding: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+                }}>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ minWidth: 60 }}>속도</span>
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={1.5}
+                        step={0.1}
+                        value={ttsRate}
+                        onChange={(e) => setTtsRate(parseFloat(e.target.value))}
+                      />
+                      <span>{ttsRate.toFixed(1)}x</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ minWidth: 60 }}>악센트</span>
+                      <select
+                        value={ttsAccent}
+                        onChange={(e) => setTtsAccent(e.target.value as 'us' | 'uk')}
+                        style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #ddd' }}
+                      >
+                        <option value="us">미국식</option>
+                        <option value="uk">영국식</option>
+                      </select>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ minWidth: 60 }}>성우</span>
+                      <select
+                        value={ttsGender}
+                        onChange={(e) => setTtsGender(e.target.value as any)}
+                        style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #ddd' }}
+                      >
+                        <option value="default">기본</option>
+                        <option value="male">남성</option>
+                        <option value="female">여성</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowTtsSettings(false)}
+                        style={{ marginLeft: 8, padding: '6px 10px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                      >
+                        확인
+                      </button>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
             </div>
           </div>
-          <div className="header-actions"></div>
+          <div className="header-actions" />
         </div>
         {/* 출처/단어 수 배지 제거 */}
       </header>
@@ -456,7 +550,16 @@ function App() {
           >
             🇰🇷 뜻 보고 맞추기
           </button>
+          <button 
+            className="quiz-button"
+            onClick={() => setMode('combinedQuiz')}
+            disabled={words.length < 4}
+          >
+            🧩 종합 퀴즈
+          </button>
         </div>
+
+        {/* 전역 TTS 설정 바는 헤더 버튼 아래에 렌더링됨 */}
 
         {error && (
           <div className="error-message">

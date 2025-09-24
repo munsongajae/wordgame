@@ -1,62 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { logAttempt, saveSession, updateProgress, getWrongWordIdsForSession } from '../services/trackingService';
+import { logAttempt, saveSession, updateProgress } from '../services/trackingService';
 import { addRecord, isNewRecord, createRecordFromQuizResult } from '../services/rankingService';
 import { Word } from '../types/word';
 
-// 정답 효과음 재생 함수
-const playCorrectSound = () => {
-  // 간단한 효과음 생성 (Web Audio API 사용)
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  
-  // 높은 음 (띵)
-  oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-  oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-  
-  // 낮은 음 (동)
-  oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
-  oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
-  
-  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
-  
-  oscillator.start(audioContext.currentTime);
-  oscillator.stop(audioContext.currentTime + 0.4);
-};
+type QuizType = 'image' | 'spelling' | 'meaning';
 
-// 오답 효과음 재생 함수
-const playWrongSound = () => {
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-
-  oscillator.type = 'sawtooth';
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-
-  oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
-
-  gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
-
-  oscillator.start(audioContext.currentTime);
-  oscillator.stop(audioContext.currentTime + 0.25);
-};
-
-interface SpellingQuizProps {
+interface CombinedQuizProps {
   words: Word[];
   onBack: () => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const NUM_QUESTIONS = 10; // 기본값(선택 전 표시용)
-const AUTO_NEXT_DELAY_MS = 800; // 정답 시 자동 진행 지연 시간
-const COUNTDOWN_BEEP_DURATION = 0.12; // 마지막 3초 비프음 길이(초)
+const NUM_OPTIONS = 4;
+const AUTO_NEXT_DELAY_MS = 800;
+const COUNTDOWN_BEEP_DURATION = 0.12;
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -67,33 +23,98 @@ function pickRandom<T>(arr: T[], count: number): T[] {
   return copy.slice(0, count);
 }
 
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
+const playCorrectSound = () => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+  oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+  oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
+  oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.4);
+};
 
-export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
-  const [questions, setQuestions] = useState<Word[]>([]);
-  const [index, setIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [checked, setChecked] = useState<boolean | null>(null);
-  const [score, setScore] = useState(0);
-  const scoreRef = useRef(0);
-  const [showImage, setShowImage] = useState(true); // true: 그림, false: 한글
-  const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
-  const [finished, setFinished] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(10);
-  const autoNextTimeoutRef = React.useRef<number | null>(null);
+const playWrongSound = () => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  oscillator.type = 'sawtooth';
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
+  gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.25);
+};
+
+export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
   const [questionCount, setQuestionCount] = useState<null | number | 'infinite'>(null);
   const [quizStartTime, setQuizStartTime] = useState<number>(0);
   const [isNewRecordAchieved, setIsNewRecordAchieved] = useState<boolean>(false);
+  const [questions, setQuestions] = useState<Word[]>([]);
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [score, setScore] = useState(0);
+  const scoreRef = useRef(0);
+  const [finished, setFinished] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(10);
+  const autoNextTimeoutRef = useRef<number | null>(null);
+  const selectedRef = useRef<number | null>(null);
+  const [quizTypes, setQuizTypes] = useState<QuizType[]>([]);
 
-  // 마지막 3초 카운트다운 비프음
+  const wordsWithImage = useMemo(() => words.filter(w => !!w.imageUrl), [words]);
+  const hasAny = words.length >= NUM_OPTIONS;
+
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+
+  useEffect(() => {
+    if (!hasAny) {
+      setQuestions([]);
+      setIndex(0);
+      setSelected(null);
+      setScore(0);
+      setFinished(false);
+      setTimeLeft(10);
+      return;
+    }
+    if (questionCount === null) return;
+    const count = questionCount === 'infinite' ? Math.min(30, words.length) : Math.min(questionCount, words.length);
+    const picked = pickRandom(words, count);
+    setQuestions(picked);
+    // 유형 시퀀스 생성
+    const types: QuizType[] = [];
+    for (let i = 0; i < count; i++) {
+      const choices: QuizType[] = ['spelling', 'meaning', 'image'];
+      const cur = picked[i];
+      if (!cur?.imageUrl || wordsWithImage.length < NUM_OPTIONS) {
+        // 이미지 부족 시 이미지 유형 제외
+        const idx = choices.indexOf('image');
+        if (idx >= 0) choices.splice(idx, 1);
+      }
+      types.push(choices[Math.floor(Math.random() * choices.length)]);
+    }
+    setQuizTypes(types);
+    setIndex(0);
+    setSelected(null);
+    setScore(0);
+    setFinished(false);
+    setTimeLeft(10);
+    // quizStartTime은 첫 번째 문제 시작 시에 설정
+  }, [questionCount, hasAny, words, wordsWithImage.length]);
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  // 타이머 및 3초 비프음
   const playCountdownBeep = () => {
     try {
       const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
@@ -111,50 +132,11 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     } catch {}
   };
 
-  useEffect(() => {
-    if (questionCount === null) return; // 아직 선택 전이면 초기화하지 않음
-    const count = questionCount === 'infinite' ? Math.min(4, words.length) : Math.min(questionCount, words.length);
-    const qs = pickRandom(words, count);
-    setQuestions(qs);
-    setIndex(0);
-    setSelectedAnswer(null);
-    setChecked(null);
-    setScore(0);
-    setShowImage(true);
-    setWrongQuestions([]);
-    setFinished(false);
-    setSessionId(null);
-    setTimeLeft(10);
-    // quizStartTime은 첫 번째 문제 시작 시에 설정
-  }, [words, questionCount]);
+  const current = questions[index] || null;
+  const currentType: QuizType | null = quizTypes[index] || null;
 
   useEffect(() => {
-    scoreRef.current = score;
-  }, [score]);
-
-  const currentQuestion = useMemo(() => {
-    if (questions.length === 0) return null;
-    
-    const current = questions[index];
-    const correctAnswer = current.english;
-    
-    // 다른 단어들에서 3개를 랜덤하게 선택
-    const otherWords = words.filter(word => word.english !== correctAnswer);
-    const availableWrongAnswers = Math.min(3, otherWords.length);
-    const wrongAnswers = pickRandom(otherWords, availableWrongAnswers);
-    
-    // 정답과 오답들을 섞어서 4지 선다형 만들기
-    const allOptions = shuffleArray([current, ...wrongAnswers]);
-    
-    return {
-      word: current,
-      options: allOptions,
-      correctAnswer
-    };
-  }, [questions, index, words]);
-
-  useEffect(() => {
-    if (finished || !currentQuestion) return;
+    if (finished || !current) return;
     setTimeLeft(10);
     // 첫 번째 문제 시작 시에만 퀴즈 시작 시간 기록
     if (index === 0 && quizStartTime === 0) {
@@ -164,13 +146,12 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          if (checked === null && currentQuestion) {
-            const isCorrect = false;
+          const current = questions[index];
+          if (selectedRef.current === null && current) {
             playWrongSound();
-            setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
-            logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
-            updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
-            setChecked(false);
+            logAttempt({ sessionId, mode: 'combinedQuiz', wordId: current.id, correct: false });
+            updateProgress({ wordId: current.id, correct: false });
+            setSelected(-1 as any);
             // 시간 초과 시에도 자동으로 다음 문제로 이동
             if (autoNextTimeoutRef.current !== null) {
               clearTimeout(autoNextTimeoutRef.current);
@@ -182,8 +163,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           }
         }
         const nextValue = Math.max(0, prev - 1);
-        // 마지막 3초(3,2,1) 비프음. 이미 답 확인한 경우는 재생하지 않음
-        if (checked === null && nextValue > 0 && nextValue <= 3) {
+        if (selectedRef.current === null && nextValue > 0 && nextValue <= 3) {
           playCountdownBeep();
         }
         return nextValue;
@@ -191,11 +171,34 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     }, 1000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, finished, currentQuestion]);
+  }, [index, finished, current]);
 
-  const speakCurrentWord = () => {
-    if (!currentQuestion) return;
-    if ('speechSynthesis' in window) {
+  const options = useMemo(() => {
+    if (!current) return [] as Word[];
+    const pool = pickRandom(
+      words.filter(w => w.id !== current.id),
+      Math.max(0, NUM_OPTIONS - 1)
+    );
+    return pickRandom([...pool, current], NUM_OPTIONS);
+  }, [current, words]);
+
+  const speakWord = (text: string) => {
+    if (!("speechSynthesis" in window)) return;
+    try {
+      let rate = 1.0 as number;
+      let gender: 'default' | 'male' | 'female' = 'default';
+      let accent: 'us' | 'uk' = 'us';
+      try {
+        const raw = localStorage.getItem('ttsSettings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed.rate === 'number') rate = parsed.rate;
+          if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') gender = parsed.gender;
+          if (parsed.accent === 'us' || parsed.accent === 'uk') accent = parsed.accent;
+        }
+      } catch {}
+      window.speechSynthesis.cancel();
+      
       // 음성 목록을 다시 로드
       const loadVoices = () => {
         return new Promise<SpeechSynthesisVoice[]>((resolve) => {
@@ -211,25 +214,11 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         });
       };
 
-      // 전역 TTS 설정 읽기
-      let rate = 1.0 as number;
-      let gender: 'default' | 'male' | 'female' = 'default';
-      let accent: 'us' | 'uk' = 'us';
-      try {
-        const raw = localStorage.getItem('ttsSettings');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (typeof parsed.rate === 'number') rate = parsed.rate;
-          if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') gender = parsed.gender;
-          if (parsed.accent === 'us' || parsed.accent === 'uk') accent = parsed.accent;
-        }
-      } catch {}
-
       loadVoices().then(voices => {
-        const utter = new SpeechSynthesisUtterance(currentQuestion.word.english);
-        utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-        utter.rate = rate;
-        utter.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+        u.rate = rate;
+        u.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
         
         console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })));
         
@@ -261,41 +250,29 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           }
           
           if (selectedVoice) {
-            utter.voice = selectedVoice;
+            u.voice = selectedVoice;
             console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
           }
         }
         
-        window.speechSynthesis.speak(utter);
+        window.speechSynthesis.speak(u);
       }).catch(() => {
-        const utter = new SpeechSynthesisUtterance(currentQuestion.word.english);
-        utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-        utter.rate = rate;
-        utter.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
-        window.speechSynthesis.speak(utter);
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+        u.rate = rate;
+        u.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+        window.speechSynthesis.speak(u);
       });
-    }
+    } catch {}
   };
 
-  if (words.length === 0) {
-    return (
-      <div className="quiz-container">
-        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
-        <p>단어가 없습니다.</p>
-      </div>
-    );
-  }
-
-  const handleAnswerSelect = (option: Word) => {
-    if (checked !== null || timeLeft === 0 || !currentQuestion) return; // 이미 답을 확인한 경우 또는 currentQuestion이 없는 경우
-    
-    setSelectedAnswer(option.english);
-    const isCorrect = option.english === currentQuestion.correctAnswer;
-    setChecked(isCorrect);
+  const handleSelect = (optIndex: number) => {
+    if (selected !== null || !current || timeLeft === 0 || !options[optIndex]) return;
+    setSelected(optIndex);
+    const isCorrect = options[optIndex].id === current.id;
     if (isCorrect) {
       setScore(s => s + 1);
-      playCorrectSound(); // 정답 효과음 재생
-      // 정답이면 일정 시간 후 자동으로 다음 문제로 이동
+      playCorrectSound();
       if (autoNextTimeoutRef.current !== null) {
         clearTimeout(autoNextTimeoutRef.current);
       }
@@ -305,8 +282,6 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
       }, AUTO_NEXT_DELAY_MS);
     } else {
       playWrongSound();
-      setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
-      // 오답이어도 자동으로 다음 문제로 이동
       if (autoNextTimeoutRef.current !== null) {
         clearTimeout(autoNextTimeoutRef.current);
       }
@@ -315,34 +290,45 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         next();
       }, AUTO_NEXT_DELAY_MS);
     }
-    // Log attempt & SRS update
-    logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
-    updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
+    logAttempt({ sessionId, mode: 'combinedQuiz', wordId: current.id, correct: isCorrect });
+    updateProgress({ wordId: current.id, correct: isCorrect });
   };
 
   const next = () => {
-    // 중복 이동 방지: 수동 이동 시 예약된 자동 이동 취소
     if (autoNextTimeoutRef.current !== null) {
       clearTimeout(autoNextTimeoutRef.current);
       autoNextTimeoutRef.current = null;
     }
+    if (!current) {
+      onBack();
+      return;
+    }
     if (index + 1 >= questions.length) {
       if (questionCount === 'infinite') {
-        const count = Math.min(4, words.length);
+        const count = Math.min(30, words.length);
         setQuestions(pickRandom(words, count));
+        // regenerate types
+        const types: QuizType[] = [];
+        for (let i = 0; i < count; i++) {
+          const cur = words[i];
+          const choices: QuizType[] = ['spelling', 'meaning', 'image'];
+          if (!cur?.imageUrl || wordsWithImage.length < NUM_OPTIONS) {
+            const idx = choices.indexOf('image');
+            if (idx >= 0) choices.splice(idx, 1);
+          }
+          types.push(choices[Math.floor(Math.random() * choices.length)]);
+        }
+        setQuizTypes(types);
         setIndex(0);
-        setSelectedAnswer(null);
-        setChecked(null);
-        setShowImage(true);
+        setSelected(null);
         setTimeLeft(10);
         setQuizStartTime(Date.now()); // 무제한 모드에서 새로운 세션 시작 시간 기록
         return;
       } else {
         setFinished(true);
-        // Save session once per completion
         if (!sessionId) {
           const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-          saveSession({ mode: 'spellingQuiz', score: scoreRef.current, total: questions.length, durationSec }).then(id => setSessionId(id));
+          saveSession({ mode: 'combinedQuiz', score: scoreRef.current, total: questions.length, durationSec }).then(id => setSessionId(id));
         }
         
         // 순위 기록 업데이트
@@ -350,9 +336,9 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         const finalScore = scoreRef.current; // 최신 점수 사용
         const accuracy = Math.round((finalScore / questions.length) * 100);
         
-        if (isNewRecord('spellingQuiz', totalTimeMs, accuracy, questionCount || 'infinite')) {
+        if (isNewRecord('combinedQuiz', totalTimeMs, accuracy, questionCount || 'infinite')) {
           const record = createRecordFromQuizResult(
-            'spellingQuiz',
+            'combinedQuiz',
             finalScore, // 최신 점수 사용
             questions.length,
             quizStartTime,
@@ -367,40 +353,164 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
       }
     }
     setIndex(i => i + 1);
-    setSelectedAnswer(null);
-    setChecked(null);
-    setShowImage(true); // 다음 문제로 넘어갈 때 그림으로 초기화
+    setSelected(null);
+  };
+
+  const renderQuestion = () => {
+    if (!current || !currentType) return null;
+    if (currentType === 'image') {
+      return (
+        <>
+          <div style={{ textAlign: 'center', margin: 16 }}>
+            {current.imageUrl ? (
+              <img src={current.imageUrl} alt={current.english} style={{ maxWidth: 360, maxHeight: 240, borderRadius: 12, objectFit: 'cover' }} />
+            ) : (
+              <div style={{ height: 200 }}>이미지가 없습니다</div>
+            )}
+          </div>
+          <div className="options" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr', justifyItems: 'center', maxWidth: 560, margin: '0 auto' }}>
+            {options.map((w, i) => {
+              const isCorrect = selected !== null && w.id === current.id;
+              const isWrong = selected === i && w.id !== current.id;
+              return (
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    onClick={() => handleSelect(i)}
+                    className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
+                    disabled={selected !== null || timeLeft === 0}
+                    style={{
+                      fontSize: 28,
+                      lineHeight: '1.2',
+                      width: 240,
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '10px 20px',
+                      borderRadius: 16,
+                      border: '2px solid #e0e0e0',
+                      backgroundColor: selected === null
+                        ? '#fff'
+                        : isCorrect
+                          ? '#4CAF50'
+                          : isWrong
+                            ? '#F44336'
+                            : '#f5f5f5',
+                      color: selected === null
+                        ? '#333'
+                        : isCorrect || isWrong
+                          ? '#fff'
+                          : '#666'
+                    }}
+                  >
+                    {w.english}
+                  </button>
+                  <button type="button" aria-label={`${w.english} 발음 듣기`} onClick={() => speakWord(w.english)}
+                    style={{ padding: '8px 10px', fontSize: 18, backgroundColor: '#1976d2', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}>🔊</button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      );
+    }
+    if (currentType === 'meaning') {
+      return (
+        <>
+          <div className="question-card" style={{ textAlign: 'center' }}>
+            <div className="question-text">다음 한국어 뜻에 맞는 영어 단어를 고르세요</div>
+            <div style={{ display: 'inline-block', padding: '12px 16px', margin: '12px 0', backgroundColor: '#fff', border: '2px solid #e0e0e0', borderRadius: 14, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#333', lineHeight: 1.3 }}>{current.korean}</div>
+            </div>
+          </div>
+          <div className="options" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr', justifyItems: 'center', maxWidth: 560, margin: '0 auto' }}>
+            {options.map((w, i) => {
+              const isCorrect = selected !== null && w.id === current.id;
+              const isWrong = selected === i && w.id !== current.id;
+              return (
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    onClick={() => handleSelect(i)}
+                    className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
+                    disabled={selected !== null || timeLeft === 0}
+                    style={{
+                      fontSize: 28,
+                      lineHeight: '1.2',
+                      width: 240,
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '10px 20px',
+                      borderRadius: 16,
+                      border: '2px solid #e0e0e0',
+                      backgroundColor: selected === null
+                        ? '#fff'
+                        : isCorrect
+                          ? '#4CAF50'
+                          : isWrong
+                            ? '#F44336'
+                            : '#f5f5f5',
+                      color: selected === null
+                        ? '#333'
+                        : isCorrect || isWrong
+                          ? '#fff'
+                          : '#666'
+                    }}
+                  >
+                    {w.english}
+                  </button>
+                  <button type="button" aria-label={`${w.english} 발음 듣기`} onClick={() => speakWord(w.english)}
+                    style={{ padding: '8px 10px', fontSize: 18, backgroundColor: '#1976d2', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}>🔊</button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      );
+    }
+    // spelling
+    return (
+      <>
+        <div className="question-card" style={{ textAlign: 'center' }}>
+          <div className="question-text">다음 철자를 보고 올바른 단어를 선택하세요</div>
+          <div style={{ display: 'inline-block', padding: '12px 16px', margin: '12px 0 6px 0', backgroundColor: '#ffffff', border: '2px solid #e0e0e0', borderRadius: 14, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+            <div style={{ fontSize: 40, fontWeight: 800, color: '#1e88e5', lineHeight: 1.2 }}>{current.english}</div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, margin: '8px auto', maxWidth: 320 }}>
+          {options.map((w, i) => {
+            const isCorrect = selected !== null && w.id === current.id;
+            const isWrong = selected === i && w.id !== current.id;
+            return (
+              <button key={w.id} onClick={() => handleSelect(i)} disabled={selected !== null || timeLeft === 0}
+                className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
+                style={{ padding: 0, width: 140, height: 140, borderRadius: 10, border: '2px solid #e0e0e0', backgroundColor: isCorrect ? '#4CAF50' : isWrong ? '#F44336' : '#fff' }}>
+                {w.imageUrl ? (
+                  <img src={w.imageUrl} alt={w.english} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#999' }}>이미지 없음</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
   };
 
   return (
     <div className="quiz-container">
-      <div className="quiz-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '30px',
-        gap: '20px'
-      }}>
+      <div className="quiz-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', gap: '20px' }}>
         <button className="back-button" onClick={onBack}>← 뒤로가기</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
-          <h2 style={{ margin: 0, color: '#333' }}>🔤 철자 보고 맞추기 ({index + 1}/{questions.length})</h2>
+          <h2 style={{ margin: 0, color: '#333' }}>🧩 종합 퀴즈 {current && questionCount !== null ? `(${index + 1}/${questions.length})` : ''}</h2>
         </div>
-        <div style={{ 
-          backgroundColor: '#f5f5f5', 
-          padding: '8px 16px', 
-          borderRadius: '20px',
-          fontWeight: 'bold',
-          color: '#2196F3',
-          minWidth: '80px',
-          textAlign: 'center'
-        }}>
+        <div style={{ backgroundColor: '#f5f5f5', padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', color: '#2196F3', minWidth: '80px', textAlign: 'center' }}>
           ⏱️ {timeLeft}s | 점수: {score}
         </div>
       </div>
 
-      
-
-      {/* 시작 옵션 선택 */}
       {questionCount === null && (
         <div style={{ textAlign: 'center', marginTop: 40 }}>
           <h3 style={{ color: '#333', fontSize: '24px', marginBottom: '30px' }}>문제 수를 선택하세요</h3>
@@ -473,166 +583,18 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         </div>
       )}
 
-      {!finished && questionCount !== null && currentQuestion && (
-        <div className="question-card" style={{ textAlign: 'center' }}>
-        <div className="question-text">다음 철자를 보고 올바른 단어를 선택하세요</div>
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '12px 16px',
-              margin: '12px 0 6px 0',
-              backgroundColor: '#ffffff',
-              border: '2px solid #e0e0e0',
-              borderRadius: '14px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-            }}
-          >
-            <div
-              style={{
-                fontSize: 48,
-                fontWeight: 800,
-                color: '#1e88e5',
-                lineHeight: 1.2,
-                letterSpacing: '0.5px'
-              }}
-            >
-              {currentQuestion.word.english}
+      {questionCount !== null && !finished && current && (
+        <>
+          {renderQuestion()}
+          {selected !== null && (
+            <div style={{ marginTop: 12, fontWeight: 700, color: options[selected]?.id === current.id ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
+              {options[selected]?.id === current.id ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
             </div>
-          </div>
-          <div style={{ textAlign: 'center', marginBottom: 10 }}>
-            <button
-              onClick={speakCurrentWord}
-              style={{
-                padding: '10px 16px',
-                fontSize: 14,
-                backgroundColor: '#4CAF50',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer'
-              }}
-            >
-              🔊 발음 듣기
-            </button>
-          </div>
-        
-        {/* 표시 방식 선택 버튼 */}
-        <div style={{ textAlign: 'center', margin: '16px 0' }}>
-          <div style={{ display: 'inline-flex', gap: '8px', backgroundColor: '#f5f5f5', padding: '4px', borderRadius: '8px' }}>
-            <button
-              onClick={() => setShowImage(true)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: showImage ? '#2196F3' : 'transparent',
-                color: showImage ? 'white' : '#666',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-            >
-              그림
-            </button>
-            <button
-              onClick={() => setShowImage(false)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: showImage ? 'transparent' : '#2196F3',
-                color: showImage ? '#666' : 'white',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-            >
-              한글
-            </button>
-          </div>
-        </div>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '8px auto', maxWidth: '320px' }}>
-          {currentQuestion.options.map((option, optionIndex) => {
-            const isCorrect = checked !== null && option.english === currentQuestion.correctAnswer;
-            const isWrong = selectedAnswer === option.english && option.english !== currentQuestion.correctAnswer;
-            
-            return (
-              <button
-                key={optionIndex}
-                onClick={() => handleAnswerSelect(option)}
-                disabled={checked !== null || timeLeft === 0}
-                style={{
-                  padding: 0,
-                  fontSize: '16px',
-                  fontWeight: '800',
-                  borderRadius: '10px',
-                  border: '2px solid #e0e0e0',
-                  backgroundColor: checked === null 
-                    ? '#fff' 
-                    : isCorrect
-                      ? '#4CAF50' 
-                      : isWrong
-                        ? '#F44336' 
-                        : '#f5f5f5',
-                  color: checked === null 
-                    ? '#333' 
-                    : isCorrect
-                      ? '#fff' 
-                      : isWrong
-                        ? '#fff' 
-                        : '#666',
-                  cursor: checked === null ? 'pointer' : 'default',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '140px',
-                  height: '140px',
-                  gap: 0,
-                  boxShadow: checked === null ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                }}
-              >
-                {showImage && option.imageUrl ? (
-                  <img 
-                    src={option.imageUrl} 
-                    alt={option.english}
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: '8px'
-                    }}
-                  />
-                ) : (
-                  <div style={{ 
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: '#f0f0f0', 
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '16px',
-                    color: '#999'
-                  }}>
-                    {showImage ? '이미지 없음' : option.korean}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        
-        {checked !== null && (
-          <div style={{ marginTop: 12, fontWeight: 700, color: checked ? '#4CAF50' : '#F44336' }}>
-            {checked ? '정답입니다! 🎉' : `오답입니다. 정답: ${currentQuestion.correctAnswer}`}
-          </div>
-        )}
-      </div>
+          )}
+        </>
       )}
 
-      {finished && (
+      {questionCount !== null && finished && (
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
           
@@ -705,34 +667,34 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
             let textColor = '';
             
             if (accuracy === 100) {
-              if (timePerQuestion <= 4) {
-                comment = '완벽합니다! 🚀 철자를 매우 빠르게 파악하셨네요!';
+              if (timePerQuestion <= 5) {
+                comment = '완벽합니다! 🚀 종합 퀴즈를 매우 빠르게 해결하셨네요!';
                 emoji = '🏆';
                 bgColor = '#d4edda';
                 textColor = '#155724';
               } else if (timePerQuestion <= 8) {
-                comment = '훌륭합니다! ✨ 모든 철자를 정확하게 맞추셨어요!';
+                comment = '훌륭합니다! ✨ 모든 유형의 문제를 완벽하게 풀어내셨어요!';
                 emoji = '🎉';
                 bgColor = '#d1ecf1';
                 textColor = '#0c5460';
               } else {
-                comment = '잘했습니다! 🎯 신중하게 생각해서 완벽한 점수를 받으셨네요!';
+                comment = '잘했습니다! 🎯 종합적인 사고력으로 완벽한 점수를 받으셨네요!';
                 emoji = '🌟';
                 bgColor = '#fff3cd';
                 textColor = '#856404';
               }
             } else if (accuracy >= 80) {
-              comment = '좋은 성과입니다! 👍 철자 실력이 많이 늘었어요!';
+              comment = '좋은 성과입니다! 👍 다양한 유형의 문제를 잘 풀어내고 계시네요!';
               emoji = '💪';
               bgColor = '#e2e3e5';
               textColor = '#383d41';
             } else if (accuracy >= 60) {
-              comment = '괜찮습니다! 📚 철자 연습을 조금 더 해보세요!';
+              comment = '괜찮습니다! 📚 여러 유형의 문제를 골고루 연습해보세요!';
               emoji = '📖';
               bgColor = '#f8d7da';
               textColor = '#721c24';
             } else {
-              comment = '아쉽네요! 🔄 철자를 더 자세히 살펴보며 연습해보세요!';
+              comment = '아쉽네요! 🔄 기본기를 다지고 다시 도전해보세요!';
               emoji = '💪';
               bgColor = '#f5c6cb';
               textColor = '#721c24';
@@ -758,7 +720,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                 </div>
                 {accuracy !== 100 && (
                   <div style={{ fontSize: '14px', marginTop: '10px', opacity: 0.8 }}>
-                    💡 틀린 단어들의 철자를 다시 확인해보세요!
+                    💡 그림, 철자, 의미 문제를 골고루 연습해보세요!
                   </div>
                 )}
               </div>
@@ -772,57 +734,6 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
             marginTop: '30px',
             flexWrap: 'wrap'
           }}>
-            {(wrongQuestions.length > 0 || sessionId) && (
-              <button
-                onClick={async () => {
-                  let retryWords = wrongQuestions;
-                  if (sessionId) {
-                    try {
-                      const ids = await getWrongWordIdsForSession(sessionId);
-                      if (ids.length > 0) {
-                        const dict = new Map(words.map(w => [w.id, w] as const));
-                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof words;
-                      }
-                    } catch (e) {
-                      // ignore and fallback to local wrongQuestions
-                    }
-                  }
-                  if (retryWords.length === 0) return;
-                  setQuestions(retryWords);
-                  setWrongQuestions([]);
-                  setIndex(0);
-                  setSelectedAnswer(null);
-                  setChecked(null);
-                  setScore(0);
-                  setShowImage(true);
-                  setFinished(false);
-                }}
-                style={{
-                  padding: '15px 25px',
-                  backgroundColor: '#1976d2',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1565c0';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(25, 118, 210, 0.4)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1976d2';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(25, 118, 210, 0.3)';
-                }}
-              >
-                🔄 틀린 문제 다시 풀기
-              </button>
-            )}
             <button
               onClick={onBack}
               style={{

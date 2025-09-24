@@ -1,6 +1,6 @@
 import { getSupabase, getOrCreateAnonUserId } from './supabaseClient';
 
-type Mode = 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'pronunciation';
+type Mode = 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'pronunciation' | 'combinedQuiz';
 
 export async function saveSession(params: { mode: Mode; score: number; total: number; durationSec?: number; sessionIdHint?: string; }): Promise<string | null> {
   const supabase = getSupabase();

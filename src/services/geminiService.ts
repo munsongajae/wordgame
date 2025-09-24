@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Word, PronunciationResult } from '../types/word';
+import { PronunciationResult } from '../types/word';
 
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY || '';
 

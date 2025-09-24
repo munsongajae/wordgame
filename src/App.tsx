@@ -119,10 +119,6 @@ function App() {
     setSelectedWord(word);
   };
 
-  
-  const handleStartImageQuiz = () => setMode('imageQuiz');
-  const handleStartSpellingQuiz = () => setMode('spellingQuiz');
-  const handleStartMeaningQuiz = () => setMode('meaningQuiz');
 
   // 단어 직접 입력 기능 제거됨
 

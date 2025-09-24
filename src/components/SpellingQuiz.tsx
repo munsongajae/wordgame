@@ -550,7 +550,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           </div>
         </div>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '8px auto', maxWidth: '320px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '8px auto', maxWidth: '380px' }}>
           {currentQuestion.options.map((option, optionIndex) => {
             const isCorrect = checked !== null && option.english === currentQuestion.correctAnswer;
             const isWrong = selectedAnswer === option.english && option.english !== currentQuestion.correctAnswer;
@@ -586,8 +586,8 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: '140px',
-                  height: '140px',
+                  width: '182px',
+                  height: '182px',
                   gap: 0,
                   boxShadow: checked === null ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                 }}

@@ -112,23 +112,6 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
       }
     }
   };
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return '#4CAF50';
-      case 'medium': return '#FF9800';
-      case 'hard': return '#F44336';
-      default: return '#9E9E9E';
-    }
-  };
-
-  const getDifficultyText = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return '쉬움';
-      case 'medium': return '';
-      case 'hard': return '어려움';
-      default: return '미분류';
-    }
-  };
 
   return (
     <div className="word-list-container">

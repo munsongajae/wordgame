@@ -1,0 +1,237 @@
+import React, { useMemo, useState } from 'react';
+import { Word } from '../types/word';
+
+interface SpellingQuizProps {
+  words: Word[];
+  onBack: () => void;
+}
+
+const NUM_QUESTIONS = 10;
+
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, count);
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
+  const questions = useMemo(() => pickRandom(words, Math.min(NUM_QUESTIONS, words.length)), [words]);
+  const [index, setIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [checked, setChecked] = useState<boolean | null>(null);
+  const [score, setScore] = useState(0);
+  const [showImage, setShowImage] = useState(true); // true: 그림, false: 한글
+
+  // 4지 선다형 선택지 생성
+  const currentQuestion = useMemo(() => {
+    if (questions.length === 0) return null;
+    
+    const current = questions[index];
+    const correctAnswer = current.english;
+    
+    // 다른 단어들에서 3개를 랜덤하게 선택
+    const otherWords = words.filter(word => word.english !== correctAnswer);
+    const availableWrongAnswers = Math.min(3, otherWords.length);
+    const wrongAnswers = pickRandom(otherWords, availableWrongAnswers);
+    
+    // 정답과 오답들을 섞어서 4지 선다형 만들기
+    const allOptions = shuffleArray([current, ...wrongAnswers]);
+    
+    return {
+      word: current,
+      options: allOptions,
+      correctAnswer
+    };
+  }, [questions, index, words]);
+
+  if (words.length === 0 || !currentQuestion) {
+    return (
+      <div className="quiz-container">
+        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
+        <p>단어가 없습니다.</p>
+      </div>
+    );
+  }
+
+  const handleAnswerSelect = (option: Word) => {
+    if (checked !== null) return; // 이미 답을 확인한 경우
+    
+    setSelectedAnswer(option.english);
+    const isCorrect = option.english === currentQuestion.correctAnswer;
+    setChecked(isCorrect);
+    if (isCorrect) setScore(s => s + 1);
+  };
+
+  const next = () => {
+    if (index + 1 >= questions.length) {
+      alert(`완료! 점수: ${score} / ${questions.length}`);
+      onBack();
+      return;
+    }
+    setIndex(i => i + 1);
+    setSelectedAnswer(null);
+    setChecked(null);
+    setShowImage(true); // 다음 문제로 넘어갈 때 그림으로 초기화
+  };
+
+  return (
+    <div className="quiz-container">
+      <div className="quiz-header" style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '30px',
+        gap: '20px'
+      }}>
+        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <h2 style={{ margin: 0, color: '#333' }}>🔤 철자 보고 맞추기 ({index + 1}/{questions.length})</h2>
+        </div>
+        <div style={{ 
+          backgroundColor: '#f5f5f5', 
+          padding: '8px 16px', 
+          borderRadius: '20px',
+          fontWeight: 'bold',
+          color: '#2196F3',
+          minWidth: '80px',
+          textAlign: 'center'
+        }}>
+          점수: {score}
+        </div>
+      </div>
+
+      <div className="question-card" style={{ textAlign: 'center' }}>
+        <div className="question-text">다음 철자를 보고 올바른 단어를 선택하세요</div>
+        <div style={{ fontSize: 28, fontWeight: 700, margin: '12px 0' }}>{currentQuestion.word.english}</div>
+        
+        {/* 표시 방식 선택 버튼 */}
+        <div style={{ textAlign: 'center', margin: '16px 0' }}>
+          <div style={{ display: 'inline-flex', gap: '8px', backgroundColor: '#f5f5f5', padding: '4px', borderRadius: '8px' }}>
+            <button
+              onClick={() => setShowImage(true)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: showImage ? '#2196F3' : 'transparent',
+                color: showImage ? 'white' : '#666',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              그림
+            </button>
+            <button
+              onClick={() => setShowImage(false)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: showImage ? 'transparent' : '#2196F3',
+                color: showImage ? '#666' : 'white',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              한글
+            </button>
+          </div>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: currentQuestion.options.length <= 2 ? '1fr' : '1fr 1fr', gap: '12px', margin: '20px auto', maxWidth: '400px' }}>
+          {currentQuestion.options.map((option, optionIndex) => {
+            const isCorrect = checked !== null && option.english === currentQuestion.correctAnswer;
+            const isWrong = selectedAnswer === option.english && option.english !== currentQuestion.correctAnswer;
+            
+            return (
+              <button
+                key={optionIndex}
+                onClick={() => handleAnswerSelect(option)}
+                disabled={checked !== null}
+                style={{
+                  padding: '16px',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  borderRadius: '12px',
+                  border: '2px solid #e0e0e0',
+                  backgroundColor: checked === null 
+                    ? '#fff' 
+                    : isCorrect
+                      ? '#4CAF50' 
+                      : isWrong
+                        ? '#F44336' 
+                        : '#f5f5f5',
+                  color: checked === null 
+                    ? '#333' 
+                    : isCorrect
+                      ? '#fff' 
+                      : isWrong
+                        ? '#fff' 
+                        : '#666',
+                  cursor: checked === null ? 'pointer' : 'default',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {showImage && option.imageUrl ? (
+                  <img 
+                    src={option.imageUrl} 
+                    alt={option.english}
+                    style={{ 
+                      width: '80px', 
+                      height: '80px', 
+                      objectFit: 'cover', 
+                      borderRadius: '8px' 
+                    }}
+                  />
+                ) : (
+                  <div style={{ 
+                    width: '80px', 
+                    height: '80px', 
+                    backgroundColor: '#f0f0f0', 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    color: '#999'
+                  }}>
+                    {showImage ? '이미지 없음' : ''}
+                  </div>
+                )}
+                {!showImage && <span>{option.korean}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button className="next-button" onClick={next} disabled={checked === null}>다음</button>
+        </div>
+        
+        {checked !== null && (
+          <div style={{ marginTop: 12, fontWeight: 700, color: checked ? '#4CAF50' : '#F44336' }}>
+            {checked ? '정답입니다! 🎉' : `오답입니다. 정답: ${currentQuestion.correctAnswer}`}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+

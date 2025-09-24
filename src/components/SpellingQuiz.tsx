@@ -1,6 +1,31 @@
 import React, { useMemo, useState } from 'react';
 import { Word } from '../types/word';
 
+// 정답 효과음 재생 함수
+const playCorrectSound = () => {
+  // 간단한 효과음 생성 (Web Audio API 사용)
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  // 높은 음 (띵)
+  oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+  oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+  
+  // 낮은 음 (동)
+  oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
+  oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
+  
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+  
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.4);
+};
+
 interface SpellingQuizProps {
   words: Word[];
   onBack: () => void;
@@ -71,7 +96,10 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     setSelectedAnswer(option.english);
     const isCorrect = option.english === currentQuestion.correctAnswer;
     setChecked(isCorrect);
-    if (isCorrect) setScore(s => s + 1);
+    if (isCorrect) {
+      setScore(s => s + 1);
+      playCorrectSound(); // 정답 효과음 재생
+    }
   };
 
   const next = () => {
@@ -220,8 +248,27 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           })}
         </div>
 
-        <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center' }}>
-          <button className="next-button" onClick={next} disabled={checked === null}>다음</button>
+        <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button 
+            className="next-button" 
+            onClick={next} 
+            disabled={checked === null}
+            style={{
+              padding: '16px 32px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              backgroundColor: checked === null ? '#ccc' : '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: checked === null ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: checked === null ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
+              minWidth: '120px'
+            }}
+          >
+            다음
+          </button>
         </div>
         
         {checked !== null && (

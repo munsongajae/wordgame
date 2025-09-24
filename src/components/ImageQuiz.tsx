@@ -1,6 +1,31 @@
 import React, { useMemo, useState } from 'react';
 import { Word } from '../types/word';
 
+// 정답 효과음 재생 함수
+const playCorrectSound = () => {
+  // 간단한 효과음 생성 (Web Audio API 사용)
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  // 높은 음 (띵)
+  oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+  oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+  
+  // 낮은 음 (동)
+  oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
+  oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
+  
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+  
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.4);
+};
+
 interface ImageQuizProps {
   words: Word[];
   onBack: () => void;
@@ -45,7 +70,10 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
   const handleSelect = (optIndex: number) => {
     if (selected !== null || !current) return;
     setSelected(optIndex);
-    if (options[optIndex].id === current.id) setScore(s => s + 1);
+    if (options[optIndex].id === current.id) {
+      setScore(s => s + 1);
+      playCorrectSound(); // 정답 효과음 재생
+    }
   };
 
   const next = () => {
@@ -167,8 +195,27 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
             })}
           </div>
 
-          <div style={{ marginTop: 16, textAlign: 'center' }}>
-            <button className="next-button" onClick={next} disabled={selected === null}>다음</button>
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <button 
+              className="next-button" 
+              onClick={next} 
+              disabled={selected === null}
+              style={{
+                padding: '16px 32px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                backgroundColor: selected === null ? '#ccc' : '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: selected === null ? 'not-allowed' : 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: selected === null ? 'none' : '0 4px 12px rgba(76, 175, 80, 0.3)',
+                minWidth: '120px'
+              }}
+            >
+              다음
+            </button>
           </div>
           
           {selected !== null && (

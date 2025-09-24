@@ -279,7 +279,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           </div>
         </div>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', margin: '16px auto', maxWidth: '520px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', margin: '16px auto', maxWidth: '560px' }}>
           {currentQuestion.options.map((option, optionIndex) => {
             const isCorrect = checked !== null && option.english === currentQuestion.correctAnswer;
             const isWrong = selectedAnswer === option.english && option.english !== currentQuestion.correctAnswer;
@@ -290,7 +290,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                 onClick={() => handleAnswerSelect(option)}
                 disabled={checked !== null || timeLeft === 0}
                 style={{
-                  padding: '10px 20px',
+                  padding: '20px 20px',
                   fontSize: '26px',
                   fontWeight: '800',
                   borderRadius: '16px',
@@ -323,16 +323,16 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                     src={option.imageUrl} 
                     alt={option.english}
                     style={{ 
-                      width: '80px', 
-                      height: '80px', 
+                      width: '120px', 
+                      height: '120px', 
                       objectFit: 'cover', 
                       borderRadius: '8px' 
                     }}
                   />
                 ) : (
                   <div style={{ 
-                    width: '80px', 
-                    height: '80px', 
+                    width: '120px', 
+                    height: '120px', 
                     backgroundColor: '#f0f0f0', 
                     borderRadius: '8px',
                     display: 'flex',

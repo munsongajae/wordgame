@@ -141,9 +141,13 @@ export class GoogleSheetsService {
       if (row.length >= 2) {
         words.push({
           id: `word_${index + 1}`,
-          english: row[0]?.trim() || '',
+          english: this.removePartOfSpeech(row[0]?.trim() || ''),
           korean: row[1]?.trim() || '',
-          imageUrl: row[2]?.trim() || undefined
+          imageUrl: row[2]?.trim() || undefined,
+          category: row[3]?.trim() || undefined, // D열: 카테고리
+          pronunciation: undefined, // E열은 품사이므로 발음 데이터 없음
+          example: undefined, // 예문 데이터 없음
+          difficulty: undefined // 난이도 데이터 없음
         });
       }
     });
@@ -176,9 +180,13 @@ export class GoogleSheetsService {
       if (columns.length >= 2 && columns[0].trim() && columns[1].trim()) {
         const word: Word = {
           id: `word_${index + 1}`,
-          english: columns[0]?.trim() || '',
+          english: this.removePartOfSpeech(columns[0]?.trim() || ''),
           korean: columns[1]?.trim() || '',
-          imageUrl: columns[2]?.trim() || undefined
+          imageUrl: columns[2]?.trim() || undefined,
+          category: columns[3]?.trim() || undefined, // D열: 카테고리
+          pronunciation: undefined, // E열은 품사이므로 발음 데이터 없음
+          example: undefined, // 예문 데이터 없음
+          difficulty: undefined // 난이도 데이터 없음
         };
         words.push(word);
         console.log(`✅ 단어 추가됨:`, word);
@@ -217,9 +225,13 @@ export class GoogleSheetsService {
       if (columns.length >= 2 && columns[0] && columns[1]) {
         const word: Word = {
           id: `word_${index + 1}`,
-          english: columns[0] || '',
+          english: this.removePartOfSpeech(columns[0] || ''),
           korean: columns[1] || '',
-          imageUrl: columns[2] || undefined
+          imageUrl: columns[2] || undefined,
+          category: columns[3] || undefined, // D열: 카테고리
+          pronunciation: undefined, // E열은 품사이므로 발음 데이터 없음
+          example: undefined, // 예문 데이터 없음
+          difficulty: undefined // 난이도 데이터 없음
         };
         words.push(word);
         console.log(`✅ 단어 추가됨:`, word);
@@ -252,6 +264,30 @@ export class GoogleSheetsService {
     }
     
     result.push(current);
+    return result;
+  }
+
+  // 영어 단어에서 품사를 제거하는 함수
+  public static removePartOfSpeech(englishWord: string): string {
+    if (!englishWord) return '';
+    
+    console.log(`🔍 품사 제거 전: "${englishWord}"`);
+    
+    // 괄호 안의 품사 제거 (예: "apple (n.)" -> "apple")
+    const withoutParentheses = englishWord.replace(/\s*\([^)]*\)\s*$/, '');
+    console.log(`🔍 괄호 제거 후: "${withoutParentheses}"`);
+    
+    // 마지막에 오는 품사 표시 제거 (예: "apple n." -> "apple")
+    const withoutPartOfSpeech = withoutParentheses.replace(/\s+(n\.|v\.|adj\.|adv\.|prep\.|conj\.|interj\.|pron\.|det\.|num\.|art\.)$/i, '');
+    console.log(`🔍 축약형 품사 제거 후: "${withoutPartOfSpeech}"`);
+    
+    // 추가적인 품사 표시 제거 (예: "apple noun" -> "apple")
+    const withoutFullPartOfSpeech = withoutPartOfSpeech.replace(/\s+(noun|verb|adjective|adverb|preposition|conjunction|interjection|pronoun|determiner|number|article)$/i, '');
+    console.log(`🔍 전체형 품사 제거 후: "${withoutFullPartOfSpeech}"`);
+    
+    const result = withoutFullPartOfSpeech.trim();
+    console.log(`✅ 최종 결과: "${result}"`);
+    
     return result;
   }
 

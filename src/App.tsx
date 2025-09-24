@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WordList from './components/WordList';
 import PronunciationQuiz from './components/PronunciationQuiz';
 import ImageQuiz from './components/ImageQuiz';
@@ -8,16 +8,28 @@ import { Word } from './types/word';
 import { GoogleSheetsService } from './services/googleSheetsService';
 import './App.css';
 
-type AppMode = 'wordList' | 'pronunciation' | 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz';
+type AppMode = 'sourceSelection' | 'wordList' | 'pronunciation' | 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz';
 
 function App() {
   const [words, setWords] = useState<Word[]>([]);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
-  const [mode, setMode] = useState<AppMode>('wordList');
+  const [mode, setMode] = useState<AppMode>('sourceSelection');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string>('전체');
 
-  const loadWords = async () => {
+  // 앱 시작 시 전체 데이터 자동 로드
+  useEffect(() => {
+    loadWords('전체');
+  }, []);
+
+  // 출처 선택 후 단어 로드
+  const loadWordsBySource = async (source: string) => {
+    setSelectedSource(source);
+    await loadWords(source);
+  };
+
+  const loadWords = async (source?: string) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -26,7 +38,8 @@ function App() {
       const sheetId = process.env.REACT_APP_GOOGLE_SHEET_ID;
       console.log('🔍 환경 변수 확인:', {
         sheetId: sheetId || '설정되지 않음',
-        hasEnvFile: !!sheetId
+        hasEnvFile: !!sheetId,
+        selectedSource: source
       });
       
       if (!sheetId) {
@@ -38,78 +51,134 @@ function App() {
       
       // 구글 시트에서 데이터를 성공적으로 가져왔는지 확인
       if (fetchedWords.length > 0) {
-        console.log('✅ 구글 시트에서 단어 로드 성공:', fetchedWords.length + '개');
-        setWords(fetchedWords);
+        // 디버깅: 구글 시트에서 가져온 카테고리들 확인
+        const allCategories = fetchedWords.map(word => word.category).filter(Boolean);
+        const categories = Array.from(new Set(allCategories));
+        console.log('🔍 구글 시트에서 발견된 카테고리들:', categories);
+        console.log('🎯 선택된 출처:', source);
+        console.log('📊 전체 단어 수:', fetchedWords.length);
+        console.log('📝 첫 3개 단어 샘플:', fetchedWords.slice(0, 3));
+        
+        // 출처별 필터링
+        let filteredWords = fetchedWords;
+        if (source && source !== '전체') {
+          filteredWords = fetchedWords.filter(word => 
+            word.category && word.category === source
+          );
+          console.log(`🔍 필터링 결과: ${filteredWords.length}개 단어 (검색어: "${source}")`);
+        }
+        
+        console.log(`✅ 구글 시트에서 단어 로드 성공: ${filteredWords.length}개 (전체: ${fetchedWords.length}개, 출처: ${source || '전체'})`);
+        setWords(filteredWords);
+        setMode('wordList'); // 단어 목록 화면으로 이동
       } else {
         console.warn('⚠️ 구글 시트에 데이터가 없습니다. 샘플 데이터를 사용합니다.');
-        // 샘플 데이터 사용
+        // 샘플 데이터 사용 (품사가 포함된 단어들로 테스트)
         const sampleWords = [
           {
             id: 'sample_1',
-            english: 'apple',
+            english: GoogleSheetsService.removePartOfSpeech('apple (n.)'),
             korean: '사과',
-            pronunciation: '/ˈæpəl/',
-            example: 'I eat an apple every day.',
-            difficulty: 'easy' as const,
-            category: 'food'
+            pronunciation: undefined,
+            example: undefined,
+            difficulty: undefined,
+            category: '기적의파닉스1권'
           },
           {
             id: 'sample_2',
-            english: 'beautiful',
+            english: GoogleSheetsService.removePartOfSpeech('beautiful adj.'),
             korean: '아름다운',
-            pronunciation: '/ˈbjuːtɪfəl/',
-            example: 'The sunset is beautiful.',
-            difficulty: 'medium' as const,
-            category: 'adjective'
+            pronunciation: undefined,
+            example: undefined,
+            difficulty: undefined,
+            category: '기적의파닉스2권'
           },
           {
             id: 'sample_3',
-            english: 'challenge',
+            english: GoogleSheetsService.removePartOfSpeech('challenge noun'),
             korean: '도전',
-            pronunciation: '/ˈtʃælɪndʒ/',
-            example: 'This is a great challenge for me.',
-            difficulty: 'medium' as const,
-            category: 'noun'
+            pronunciation: undefined,
+            example: undefined,
+            difficulty: undefined,
+            category: '기적의파닉스1권'
+          },
+          {
+            id: 'sample_4',
+            english: GoogleSheetsService.removePartOfSpeech('adventure'),
+            korean: '모험',
+            pronunciation: undefined,
+            example: undefined,
+            difficulty: undefined,
+            category: '기적의파닉스3권'
           }
         ];
-        setWords(sampleWords);
+        
+        // 출처별 필터링
+        let filteredSampleWords = sampleWords;
+        if (source && source !== '전체') {
+          filteredSampleWords = sampleWords.filter(word => 
+            word.category && word.category === source
+          );
+        }
+        
+        setWords(filteredSampleWords);
+        setMode('wordList');
       }
     } catch (err) {
       console.error('❌ 구글 시트 접근 실패:', err);
       console.log('🔄 샘플 데이터를 사용합니다.');
       
-      // 오류 발생 시 샘플 데이터 사용
+      // 오류 발생 시 샘플 데이터 사용 (품사가 포함된 단어들로 테스트)
       const sampleWords = [
         {
           id: 'sample_1',
-          english: 'apple',
+          english: GoogleSheetsService.removePartOfSpeech('apple (n.)'),
           korean: '사과',
-          pronunciation: '/ˈæpəl/',
-          example: 'I eat an apple every day.',
-          difficulty: 'easy' as const,
-          category: 'food'
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined,
+          category: '기적의파닉스1권'
         },
         {
           id: 'sample_2',
-          english: 'beautiful',
+          english: GoogleSheetsService.removePartOfSpeech('beautiful adj.'),
           korean: '아름다운',
-          pronunciation: '/ˈbjuːtɪfəl/',
-          example: 'The sunset is beautiful.',
-          difficulty: 'medium' as const,
-          category: 'adjective'
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined,
+          category: '기적의파닉스2권'
         },
         {
           id: 'sample_3',
-          english: 'challenge',
+          english: GoogleSheetsService.removePartOfSpeech('challenge noun'),
           korean: '도전',
-          pronunciation: '/ˈtʃælɪndʒ/',
-          example: 'This is a great challenge for me.',
-          difficulty: 'medium' as const,
-          category: 'noun'
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined,
+          category: '기적의파닉스1권'
+        },
+        {
+          id: 'sample_4',
+          english: GoogleSheetsService.removePartOfSpeech('adventure'),
+          korean: '모험',
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined,
+          category: '기적의파닉스3권'
         }
       ];
-        setWords(sampleWords);
-        setError('구글 시트에 접근할 수 없습니다. 구글 시트 공개 설정을 확인해주세요.');
+      
+      // 출처별 필터링
+      let filteredSampleWords = sampleWords;
+      if (source && source !== '전체') {
+        filteredSampleWords = sampleWords.filter(word => 
+          word.category && word.category === source
+        );
+      }
+      
+      setWords(filteredSampleWords);
+      setMode('wordList');
+      setError('구글 시트에 접근할 수 없습니다. 구글 시트 공개 설정을 확인해주세요.');
     } finally {
       setIsLoading(false);
     }
@@ -127,8 +196,19 @@ function App() {
     setSelectedWord(null);
   };
 
+  const handleBackToSourceSelection = () => {
+    setMode('sourceSelection');
+    setSelectedWord(null);
+    setWords([]);
+    setSelectedSource('전체');
+  };
+
   const handleRetry = () => {
-    loadWords();
+    if (selectedSource) {
+      loadWords(selectedSource);
+    } else {
+      setMode('sourceSelection');
+    }
   };
 
   // 로딩 중이거나 에러가 있을 때는 메인 화면에서 처리
@@ -138,6 +218,93 @@ function App() {
   // 단어 하나씩 보기 기능 제거됨
 
   // singleWord mode removed
+
+  // 출처 선택 화면
+  if (mode === 'sourceSelection') {
+    return (
+      <div className="app-container">
+        <header className="app-header">
+          <h1>🎓 영어 단어 익히기</h1>
+          <p>제미나이 AI와 함께하는 영어 학습</p>
+        </header>
+
+        <main className="app-main">
+          <div className="source-selection">
+            <h2>📚 학습할 단어 출처를 선택하세요</h2>
+            <p>구글 시트의 D열 분류 기준에 따라 단어를 불러옵니다.</p>
+            
+            <div className="source-buttons">
+              <button 
+                className="source-button"
+                onClick={() => loadWordsBySource('전체')}
+                disabled={isLoading}
+              >
+                <div className="source-icon">📚</div>
+                <div className="source-title">전체</div>
+              </button>
+              
+              <button 
+                className="source-button"
+                onClick={() => loadWordsBySource('기적의파닉스1권')}
+                disabled={isLoading}
+              >
+                <div className="source-icon">📖</div>
+                <div className="source-title">기적의 파닉스 1권</div>
+              </button>
+              
+              <button 
+                className="source-button"
+                onClick={() => loadWordsBySource('기적의파닉스2권')}
+                disabled={isLoading}
+              >
+                <div className="source-icon">📚</div>
+                <div className="source-title">기적의 파닉스 2권</div>
+              </button>
+              
+              <button 
+                className="source-button"
+                onClick={() => loadWordsBySource('기적의파닉스3권')}
+                disabled={isLoading}
+              >
+                <div className="source-icon">📘</div>
+                <div className="source-title">기적의 파닉스 3권</div>
+              </button>
+            </div>
+
+            {isLoading && (
+              <div className="loading-message">
+                <h3>🔄 구글 시트에서 단어를 가져오는 중...</h3>
+                <p>잠시만 기다려주세요.</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="error-message">
+                <p>❌ {error}</p>
+                <div className="error-help">
+                  <h4>💡 해결 방법:</h4>
+                  <ol>
+                    <li>구글 시트가 <strong>공개 설정</strong>되어 있는지 확인하세요
+                      <br />→ 구글 시트 → 공유 → "링크가 있는 모든 사용자" 선택</li>
+                    <li>.env 파일에 올바른 시트 ID가 설정되어 있는지 확인하세요
+                      <br />→ REACT_APP_GOOGLE_SHEET_ID=your_sheet_id_here</li>
+                    <li>서버를 재시작하세요 (Ctrl+C 후 npm start)</li>
+                  </ol>
+                </div>
+                <button className="retry-button" onClick={handleRetry}>
+                  🔄 다시 시도
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
+
+        <footer className="app-footer">
+          <p>💡 팁: 구글 시트의 D열에 '기적의파닉스1권' 또는 '기적의파닉스2권'으로 분류된 단어만 불러옵니다.</p>
+        </footer>
+      </div>
+    );
+  }
 
   if (mode === 'pronunciation') {
     return <PronunciationQuiz words={words} onBack={handleBackToWordList} />;
@@ -160,11 +327,64 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>🎓 영어 단어 익히기</h1>
-        <p>제미나이 AI와 함께하는 영어 학습</p>
+        <div className="header-content">
+          <div className="header-main">
+            <h1>🎓 영어 단어 익히기</h1>
+            <p>제미나이 AI와 함께하는 영어 학습</p>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="back-to-source-button"
+              onClick={handleBackToSourceSelection}
+            >
+              ← 출처 선택으로
+            </button>
+          </div>
+        </div>
+        {selectedSource && (
+          <div className="source-info">
+            <span className="source-badge">📚 {selectedSource}</span>
+            <span className="word-count">단어 {words.length}개</span>
+          </div>
+        )}
       </header>
 
       <main className="app-main">
+        {/* 출처 선택 버튼들 */}
+        <div className="source-filter-buttons">
+          <h3>📚 출처 선택</h3>
+          <div className="source-filter-container">
+            <button 
+              className={`source-filter-button ${selectedSource === '전체' ? 'active' : ''}`}
+              onClick={() => loadWordsBySource('전체')}
+              disabled={isLoading}
+            >
+              전체
+            </button>
+            <button 
+              className={`source-filter-button ${selectedSource === '기적의파닉스1권' ? 'active' : ''}`}
+              onClick={() => loadWordsBySource('기적의파닉스1권')}
+              disabled={isLoading}
+            >
+              기적의파닉스1권
+            </button>
+            <button 
+              className={`source-filter-button ${selectedSource === '기적의파닉스2권' ? 'active' : ''}`}
+              onClick={() => loadWordsBySource('기적의파닉스2권')}
+              disabled={isLoading}
+            >
+              기적의파닉스2권
+            </button>
+            <button 
+              className={`source-filter-button ${selectedSource === '기적의파닉스3권' ? 'active' : ''}`}
+              onClick={() => loadWordsBySource('기적의파닉스3권')}
+              disabled={isLoading}
+            >
+              기적의파닉스3권
+            </button>
+          </div>
+        </div>
+
         <div className="action-buttons">
           <button 
             className="quiz-button"
@@ -215,28 +435,31 @@ function App() {
           </div>
         )}
 
-        {words.length > 0 ? (
+        {isLoading ? (
+          <div className="loading-message">
+            <h3>🔄 구글 시트에서 단어를 가져오는 중...</h3>
+            <p>잠시만 기다려주세요.</p>
+          </div>
+        ) : words.length > 0 ? (
           <>
             <WordList
               words={words}
               onWordSelect={handleWordSelect}
               selectedWord={selectedWord || undefined}
             />
-
           </>
         ) : (
           <div className="no-words-message">
             <h3>📚 영어 단어 학습을 시작해보세요!</h3>
-            <p>구글 시트에서 단어를 가져오세요. 단어가 4개 이상이면 퀴즈를 시작할 수 있어요.</p>
+            <p>단어가 4개 이상이면 퀴즈를 시작할 수 있어요.</p>
             <div className="load-buttons">
               <button 
                 className="load-google-sheet-button"
-                onClick={loadWords}
+                onClick={() => handleRetry()}
                 disabled={isLoading}
               >
-                {isLoading ? '🔄 로딩 중...' : '📊 구글 시트에서 가져오기'}
+                🔄 다시 시도
               </button>
-              
             </div>
           </div>
         )}

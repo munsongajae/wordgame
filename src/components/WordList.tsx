@@ -42,6 +42,7 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
             className={`word-item ${selectedWord?.id === word.id ? 'selected' : ''}`}
             onClick={() => onWordSelect(word)}
           >
+            {/* 그림을 먼저 표시 */}
             {word.imageUrl && !imageErrors.has(word.id) && (
               <div className="word-image-container">
                 <img
@@ -52,10 +53,14 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
                 />
               </div>
             )}
+            
+            {/* 텍스트 정보를 다음에 표시 */}
             <div className="word-main">
               <div className="word-english">{word.english}</div>
               <div className="word-korean">{word.korean}</div>
             </div>
+            
+            {/* 세부 정보를 마지막에 표시 */}
             <div className="word-details">
               {word.pronunciation && (
                 <div className="word-pronunciation">
@@ -69,6 +74,8 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
                 {getDifficultyText(word.difficulty || 'medium')}
               </div>
             </div>
+            
+            {/* 예문은 별도로 표시 */}
             {word.example && (
               <div className="word-example">
                 "{word.example}"

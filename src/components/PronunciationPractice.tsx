@@ -86,7 +86,6 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
   const [result, setResult] = useState<PronunciationResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [inputMode, setInputMode] = useState<'manual' | 'speech'>('speech');
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const handleWordSelect = (selectedWord: Word) => {
@@ -96,8 +95,7 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
   useEffect(() => {
     // 음성 인식 지원 여부 확인
     if (!speechRecognition.isSupported()) {
-      setInputMode('manual');
-      console.log('음성 인식 미지원, 수동 입력 모드로 전환');
+      console.log('음성 인식이 지원되지 않는 브라우저입니다.');
     }
   }, []);
 
@@ -154,8 +152,7 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
       await analyzePronunciation(transcript);
     } catch (error) {
       console.error('음성 인식 오류:', error);
-      alert('음성 인식에 실패했습니다. 수동으로 입력해주세요.');
-      setInputMode('manual');
+      alert('음성 인식에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsRecognizing(false);
     }
@@ -228,18 +225,32 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
 
       <div className="word-card">
         <div className="word-display">
-          <h1 className="word-english">{selectedWord.english}</h1>
-          <div className="word-korean">{selectedWord.korean}</div>
-          {selectedWord.pronunciation && (
-            <div className="word-pronunciation">
-              /{selectedWord.pronunciation}/
+          {/* 그림을 먼저 가운데 정렬로 표시 */}
+          {selectedWord.imageUrl && (
+            <div className="word-image-container">
+              <img 
+                src={selectedWord.imageUrl} 
+                alt={selectedWord.english}
+                className="word-image"
+              />
             </div>
           )}
-          {selectedWord.example && (
-            <div className="word-example">
-              "{selectedWord.example}"
-            </div>
-          )}
+          
+          {/* 텍스트를 그림 아래로 이동 */}
+          <div className="word-text-container">
+            <h1 className="word-english">{selectedWord.english}</h1>
+            <div className="word-korean">{selectedWord.korean}</div>
+            {selectedWord.pronunciation && (
+              <div className="word-pronunciation">
+                /{selectedWord.pronunciation}/
+              </div>
+            )}
+            {selectedWord.example && (
+              <div className="word-example">
+                "{selectedWord.example}"
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="pronunciation-controls">
@@ -265,57 +276,18 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
         </div>
 
         <div className="input-section">
-          <div className="input-mode-selector">
+          <div className="speech-input-section">
             <button 
-              className={`mode-button ${inputMode === 'speech' ? 'active' : ''}`}
-              onClick={() => setInputMode('speech')}
-              disabled={!speechRecognition.isSupported()}
+              className={`speech-recognition-button ${isRecognizing ? 'recognizing' : ''}`}
+              onClick={handleSpeechRecognition}
+              disabled={isRecognizing || isAnalyzing}
             >
-              🎤 음성 인식
+              {isRecognizing ? '🎤 음성 인식 중...' : '🎤 발음 녹음하기'}
             </button>
-            <button 
-              className={`mode-button ${inputMode === 'manual' ? 'active' : ''}`}
-              onClick={() => setInputMode('manual')}
-            >
-              ⌨️ 수동 입력
-            </button>
+            <p className="speech-help">
+              버튼을 클릭하고 "{selectedWord.english}"를 발음해주세요
+            </p>
           </div>
-
-          {inputMode === 'speech' ? (
-            <div className="speech-input-section">
-              <button 
-                className={`speech-recognition-button ${isRecognizing ? 'recognizing' : ''}`}
-                onClick={handleSpeechRecognition}
-                disabled={isRecognizing || isAnalyzing}
-              >
-                {isRecognizing ? '🎤 음성 인식 중...' : '🎤 발음 녹음하기'}
-              </button>
-              <p className="speech-help">
-                버튼을 클릭하고 "{selectedWord.english}"를 발음해주세요
-              </p>
-            </div>
-          ) : (
-            <div className="manual-input-section">
-              <label htmlFor="pronunciation-input">
-                발음을 텍스트로 입력해주세요:
-              </label>
-              <input
-                id="pronunciation-input"
-                type="text"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                placeholder="예: 애플, 비유티풀"
-                className="pronunciation-input"
-              />
-              <button 
-                className="analyze-button"
-                onClick={() => analyzePronunciation()}
-                disabled={isAnalyzing || !userInput.trim()}
-              >
-                {isAnalyzing ? '분석 중...' : '발음 분석하기'}
-              </button>
-            </div>
-          )}
 
           {userInput && (
             <div className="recognized-text">

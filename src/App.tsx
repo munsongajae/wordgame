@@ -224,8 +224,8 @@ function App() {
     return (
       <div className="app-container">
         <header className="app-header">
-          <h1>🎓 영어 단어 익히기</h1>
-          <p>제미나이 AI와 함께하는 영어 학습</p>
+          <h1>🌍 세계 여행을 위한 영어 공부</h1>
+          <p>🎯 곰이 난이 버킷 리스트 이루기</p>
         </header>
 
         <main className="app-main">
@@ -329,8 +329,8 @@ function App() {
       <header className="app-header">
         <div className="header-content">
           <div className="header-main">
-            <h1>🎓 영어 단어 익히기</h1>
-            <p>제미나이 AI와 함께하는 영어 학습</p>
+            <h1>🌍 세계 여행을 위한 영어 공부</h1>
+            <p>🎯 곰이 난이 버킷 리스트 이루기</p>
           </div>
           <div className="header-actions">
             <button 

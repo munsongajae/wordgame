@@ -53,7 +53,8 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
-  const [showEnglish, setShowEnglish] = useState(true); // true: 영어, false: 한글
+  // 옵션 표시는 항상 영어로 표시
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const current = questions[index] || null;
 
@@ -88,7 +89,40 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
     }
     setIndex(i => i + 1);
     setSelected(null);
-    setShowEnglish(true); // 다음 문제로 넘어갈 때 영어로 초기화
+  };
+
+  const speakOptions = () => {
+    if (!current) return;
+    if (!("speechSynthesis" in window)) {
+      alert('이 브라우저에서는 음성 합성이 지원되지 않습니다.');
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(true);
+      let i = 0;
+      const playNext = () => {
+        if (i >= options.length) {
+          setIsSpeaking(false);
+          return;
+        }
+        const word = options[i].english;
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 1.0; // 더 빠르게
+        utterance.pitch = 1;
+        utterance.onend = () => {
+          i += 1;
+          // 즉시 다음 발음 재생
+          setTimeout(playNext, 0);
+        };
+        window.speechSynthesis.speak(utterance);
+      };
+      playNext();
+    } catch (e) {
+      console.error('발음 재생 오류:', e);
+      setIsSpeaking(false);
+    }
   };
 
   return (
@@ -133,41 +167,27 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
             )}
           </div>
 
-          {/* 언어 선택 버튼 */}
-          <div style={{ textAlign: 'center', margin: '16px 0' }}>
-            <div style={{ display: 'inline-flex', gap: '8px', backgroundColor: '#f5f5f5', padding: '4px', borderRadius: '8px' }}>
-              <button
-                onClick={() => setShowEnglish(true)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: showEnglish ? '#2196F3' : 'transparent',
-                  color: showEnglish ? 'white' : '#666',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                영어
-              </button>
-              <button
-                onClick={() => setShowEnglish(false)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: showEnglish ? 'transparent' : '#2196F3',
-                  color: showEnglish ? '#666' : 'white',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                한글
-              </button>
-            </div>
+          {/* 발음 듣기 버튼 (옵션 4개를 순서대로 재생) */}
+          <div style={{ textAlign: 'center', margin: '12px 0' }}>
+            <button
+              onClick={speakOptions}
+              disabled={isSpeaking}
+              style={{
+                padding: '10px 18px',
+                fontSize: 16,
+                backgroundColor: isSpeaking ? '#ccc' : '#1976d2',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                cursor: isSpeaking ? 'not-allowed' : 'pointer',
+                boxShadow: isSpeaking ? 'none' : '0 4px 12px rgba(25,118,210,0.25)'
+              }}
+            >
+              🔊 발음 듣기
+            </button>
           </div>
 
-          <div className="options" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, 1fr)', justifyItems: 'center', maxWidth: 480, margin: '0 auto' }}>
+          <div className="options" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr', justifyItems: 'center', maxWidth: 480, margin: '0 auto' }}>
             {options.map((w, i) => {
               const isCorrect = selected !== null && w.id === current.id;
               const isWrong = selected === i && w.id !== current.id;
@@ -178,18 +198,34 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
                   className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
                   disabled={selected !== null}
                   style={{
-                    fontSize: 20,
+                    fontSize: 28,
                     lineHeight: '1.2',
-                    width: 200,
+                    width: 240,
                     textAlign: 'center',
                     justifySelf: 'center',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    padding: '16px'
+                    padding: '20px',
+                    borderRadius: 14,
+                    border: '2px solid #e0e0e0',
+                    backgroundColor: selected === null
+                      ? '#fff'
+                      : isCorrect
+                        ? '#4CAF50'
+                        : isWrong
+                          ? '#F44336'
+                          : '#f5f5f5',
+                    color: selected === null
+                      ? '#333'
+                      : isCorrect || isWrong
+                        ? '#fff'
+                        : '#666',
+                    boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  {showEnglish ? w.english : w.korean}
+                  {w.english}
                 </button>
               );
             })}

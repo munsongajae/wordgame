@@ -178,7 +178,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           </div>
         </div>
         
-        <div style={{ display: 'grid', gridTemplateColumns: currentQuestion.options.length <= 2 ? '1fr' : '1fr 1fr', gap: '12px', margin: '20px auto', maxWidth: '400px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', margin: '16px auto', maxWidth: '520px' }}>
           {currentQuestion.options.map((option, optionIndex) => {
             const isCorrect = checked !== null && option.english === currentQuestion.correctAnswer;
             const isWrong = selectedAnswer === option.english && option.english !== currentQuestion.correctAnswer;
@@ -189,10 +189,10 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                 onClick={() => handleAnswerSelect(option)}
                 disabled={checked !== null}
                 style={{
-                  padding: '16px',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  borderRadius: '12px',
+                  padding: '20px',
+                  fontSize: '26px',
+                  fontWeight: '800',
+                  borderRadius: '16px',
                   border: '2px solid #e0e0e0',
                   backgroundColor: checked === null 
                     ? '#fff' 
@@ -209,11 +209,12 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                         ? '#fff' 
                         : '#666',
                   cursor: checked === null ? 'pointer' : 'default',
-                  transition: 'all 0.3s ease',
+                  transition: 'all 0.2s ease',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '12px',
+                  boxShadow: checked === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'
                 }}
               >
                 {showImage && option.imageUrl ? (
@@ -242,7 +243,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                     {showImage ? '이미지 없음' : ''}
                   </div>
                 )}
-                {!showImage && <span>{option.korean}</span>}
+                {!showImage && <span style={{ fontSize: 20 }}>{option.korean}</span>}
               </button>
             );
           })}

@@ -124,7 +124,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
             <div style={{ fontSize: 28, fontWeight: 700, margin: '12px 0' }}>{current.korean}</div>
           </div>
 
-          <div className="options" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, 1fr)', justifyItems: 'center', maxWidth: 480, margin: '0 auto' }}>
+          <div className="options" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr', justifyItems: 'center', maxWidth: 520, margin: '0 auto' }}>
             {options.map((opt, i) => {
               const isCorrect = selected !== null && opt === current.english;
               const isWrong = selected === i && opt !== current.english;
@@ -135,15 +135,31 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
                   className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
                   disabled={selected !== null}
                   style={{
-                    fontSize: 20,
+                    fontSize: 28,
                     lineHeight: '1.2',
-                    width: 200,
+                    width: 240,
                     textAlign: 'center',
                     justifySelf: 'center',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    padding: '16px'
+                    padding: '20px',
+                    borderRadius: 16,
+                    border: '2px solid #e0e0e0',
+                    backgroundColor: selected === null
+                      ? '#fff'
+                      : isCorrect
+                        ? '#4CAF50'
+                        : isWrong
+                          ? '#F44336'
+                          : '#f5f5f5',
+                    color: selected === null
+                      ? '#333'
+                      : isCorrect || isWrong
+                        ? '#fff'
+                        : '#666',
+                    boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   {opt}

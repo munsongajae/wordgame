@@ -1,7 +1,7 @@
 export interface RankingRecord {
   id: string;
   quizType: 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'combinedQuiz';
-  userName: '열음' | '지음';
+  userName: '열음이' | '지음이';
   score: number;
   totalQuestions: number;
   totalTimeMs: number; // 전체 풀이 시간 (밀리초)

@@ -22,7 +22,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('전체');
-  const [currentUserName, setCurrentUserName] = useState<'열음' | '지음'>(getCurrentUserName());
+  const [currentUserName, setCurrentUserName] = useState<'열음이' | '지음이'>(getCurrentUserName());
   const [showTtsSettings, setShowTtsSettings] = useState(false);
   const [ttsRate, setTtsRate] = useState<number>(1.0);
   const [ttsGender, setTtsGender] = useState<'default' | 'male' | 'female'>('default');
@@ -368,18 +368,18 @@ function App() {
               <h1>🌍 세계 여행을 위한<br />{currentUserName}의 영어 공부</h1>
               <div className="header-controls" style={{ marginTop: 24 }}>
                 <div className="user-switch">
-                  <button
-                    className={currentUserName === '열음' ? 'active' : ''}
-                    onClick={() => { setCurrentUserByName('열음'); setCurrentUserName('열음'); setMode('sourceSelection'); }}
-                  >
-                    열음
-                  </button>
-                  <button
-                    className={currentUserName === '지음' ? 'active' : ''}
-                    onClick={() => { setCurrentUserByName('지음'); setCurrentUserName('지음'); setMode('sourceSelection'); }}
-                  >
-                    지음
-                  </button>
+                <button
+                  className={currentUserName === '열음이' ? 'active' : ''}
+                  onClick={() => { setCurrentUserByName('열음이'); setCurrentUserName('열음이'); setMode('sourceSelection'); }}
+                >
+                  열음이
+                </button>
+                <button
+                  className={currentUserName === '지음이' ? 'active' : ''}
+                  onClick={() => { setCurrentUserByName('지음이'); setCurrentUserName('지음이'); setMode('sourceSelection'); }}
+                >
+                  지음이
+                </button>
                 </div>
               </div>
             </div>
@@ -402,16 +402,16 @@ function App() {
             <div className="header-controls">
               <div className="user-switch">
                 <button
-                  className={currentUserName === '열음' ? 'active' : ''}
-                  onClick={() => { setCurrentUserByName('열음'); setCurrentUserName('열음'); }}
+                  className={currentUserName === '열음이' ? 'active' : ''}
+                  onClick={() => { setCurrentUserByName('열음이'); setCurrentUserName('열음이'); }}
                 >
-                  열음
+                  열음이
                 </button>
                 <button
-                  className={currentUserName === '지음' ? 'active' : ''}
-                  onClick={() => { setCurrentUserByName('지음'); setCurrentUserName('지음'); }}
+                  className={currentUserName === '지음이' ? 'active' : ''}
+                  onClick={() => { setCurrentUserByName('지음이'); setCurrentUserName('지음이'); }}
                 >
-                  지음
+                  지음이
                 </button>
               </div>
             <button className="back-to-source-button" onClick={() => setMode('dashboard')}>📊 내 점수</button>

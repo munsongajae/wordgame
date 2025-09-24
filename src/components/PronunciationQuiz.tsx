@@ -94,6 +94,7 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [score, setScore] = useState(0);
+  const [finished, setFinished] = useState(false);
 
   if (words.length === 0) {
     return (
@@ -162,8 +163,7 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
 
   const next = () => {
     if (index + 1 >= questions.length) {
-      alert(`완료! 점수: ${score} / ${questions.length}`);
-      onBack();
+      setFinished(true);
       return;
     }
     setIndex(i => i + 1);
@@ -197,6 +197,7 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
         </div>
       </div>
 
+      {!finished && (
       <div className="question-card" style={{ textAlign: 'center' }}>
         <div className="word-display" style={{ margin: '20px 0' }}>
           {/* 그림을 먼저 표시 */}
@@ -331,6 +332,31 @@ export default function PronunciationQuiz({ words, onBack }: PronunciationQuizPr
           </button>
         </div>
       </div>
+      )}
+
+      {finished && (
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <h3 style={{ color: '#333' }}>결과</h3>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#2196F3', margin: '12px 0' }}>
+            점수: {score} / {questions.length}
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
+            <button
+              onClick={onBack}
+              style={{
+                padding: '12px 20px',
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                cursor: 'pointer'
+              }}
+            >
+              뒤로가기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

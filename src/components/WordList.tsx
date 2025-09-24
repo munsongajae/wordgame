@@ -14,6 +14,21 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
   const handleImageError = (wordId: string) => {
     setImageErrors(prev => new Set(prev).add(wordId));
   };
+
+  const speakWord = (english: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && english) {
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(english);
+        utter.lang = 'en-US';
+        utter.rate = 0.8;
+        utter.pitch = 1;
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        // no-op
+      }
+    }
+  };
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy': return '#4CAF50';
@@ -40,7 +55,7 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
           <div
             key={word.id}
             className={`word-item ${selectedWord?.id === word.id ? 'selected' : ''}`}
-            onClick={() => onWordSelect(word)}
+            onClick={() => { speakWord(word.english); onWordSelect(word); }}
           >
             {/* 그림을 먼저 표시 */}
             {word.imageUrl && !imageErrors.has(word.id) && (

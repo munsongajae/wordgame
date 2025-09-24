@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Word } from '../types/word';
 
 // 정답 효과음 재생 함수
@@ -24,6 +24,26 @@ const playCorrectSound = () => {
   
   oscillator.start(audioContext.currentTime);
   oscillator.stop(audioContext.currentTime + 0.4);
+};
+
+// 오답 효과음 재생 함수
+const playWrongSound = () => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = 'sawtooth';
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
+
+  gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
+
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.25);
 };
 
 interface SpellingQuizProps {
@@ -52,12 +72,26 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
-  const questions = useMemo(() => pickRandom(words, Math.min(NUM_QUESTIONS, words.length)), [words]);
+  const [questions, setQuestions] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [checked, setChecked] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [showImage, setShowImage] = useState(true); // true: 그림, false: 한글
+  const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    const qs = pickRandom(words, Math.min(NUM_QUESTIONS, words.length));
+    setQuestions(qs);
+    setIndex(0);
+    setSelectedAnswer(null);
+    setChecked(null);
+    setScore(0);
+    setShowImage(true);
+    setWrongQuestions([]);
+    setFinished(false);
+  }, [words]);
 
   // 4지 선다형 선택지 생성
   const currentQuestion = useMemo(() => {
@@ -99,13 +133,15 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     if (isCorrect) {
       setScore(s => s + 1);
       playCorrectSound(); // 정답 효과음 재생
+    } else {
+      playWrongSound();
+      setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
     }
   };
 
   const next = () => {
     if (index + 1 >= questions.length) {
-      alert(`완료! 점수: ${score} / ${questions.length}`);
-      onBack();
+      setFinished(true);
       return;
     }
     setIndex(i => i + 1);
@@ -140,9 +176,10 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         </div>
       </div>
 
-      <div className="question-card" style={{ textAlign: 'center' }}>
+      {!finished && (
+        <div className="question-card" style={{ textAlign: 'center' }}>
         <div className="question-text">다음 철자를 보고 올바른 단어를 선택하세요</div>
-        <div style={{ fontSize: 28, fontWeight: 700, margin: '12px 0' }}>{currentQuestion.word.english}</div>
+          <div style={{ fontSize: 48, fontWeight: 800, margin: '12px 0', color: '#1e88e5' }}>{currentQuestion.word.english}</div>
         
         {/* 표시 방식 선택 버튼 */}
         <div style={{ textAlign: 'center', margin: '16px 0' }}>
@@ -189,7 +226,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                 onClick={() => handleAnswerSelect(option)}
                 disabled={checked !== null}
                 style={{
-                  padding: '20px',
+                  padding: '10px 20px',
                   fontSize: '26px',
                   fontWeight: '800',
                   borderRadius: '16px',
@@ -278,6 +315,55 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           </div>
         )}
       </div>
+      )}
+
+      {finished && (
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <h3 style={{ color: '#333' }}>결과</h3>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#2196F3', margin: '12px 0' }}>
+            점수: {score} / {questions.length}
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
+            {wrongQuestions.length > 0 && (
+              <button
+                onClick={() => {
+                  setQuestions(wrongQuestions);
+                  setWrongQuestions([]);
+                  setIndex(0);
+                  setSelectedAnswer(null);
+                  setChecked(null);
+                  setScore(0);
+                  setShowImage(true);
+                  setFinished(false);
+                }}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+              >
+                틀린 문제 다시 풀기 ({wrongQuestions.length})
+              </button>
+            )}
+            <button
+              onClick={onBack}
+              style={{
+                padding: '12px 20px',
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                cursor: 'pointer'
+              }}
+            >
+              뒤로가기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

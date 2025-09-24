@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Word } from '../types/word';
 
 // 정답 효과음 재생 함수
@@ -26,6 +26,27 @@ const playCorrectSound = () => {
   oscillator.stop(audioContext.currentTime + 0.4);
 };
 
+// 오답 효과음 재생 함수
+const playWrongSound = () => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = 'sawtooth';
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  // 불편한 하강 톤
+  oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
+
+  gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
+
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.25);
+};
+
 interface ImageQuizProps {
   words: Word[];
   onBack: () => void;
@@ -46,15 +67,32 @@ function pickRandom<T>(arr: T[], count: number): T[] {
 export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
   const eligible = useMemo(() => words.filter(w => !!w.imageUrl), [words]);
   const hasEnough = eligible.length >= NUM_OPTIONS;
-  const questions = useMemo(
-    () => (hasEnough ? pickRandom(eligible, Math.min(NUM_QUESTIONS, eligible.length)) : []),
-    [eligible, hasEnough]
-  );
+  const [questions, setQuestions] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   // 옵션 표시는 항상 영어로 표시
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    if (hasEnough) {
+      setQuestions(pickRandom(eligible, Math.min(NUM_QUESTIONS, eligible.length)));
+      setIndex(0);
+      setSelected(null);
+      setScore(0);
+      setWrongQuestions([]);
+      setFinished(false);
+    } else {
+      setQuestions([]);
+      setIndex(0);
+      setSelected(null);
+      setScore(0);
+      setWrongQuestions([]);
+      setFinished(false);
+    }
+  }, [eligible, hasEnough]);
 
   const current = questions[index] || null;
 
@@ -74,6 +112,9 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
     if (options[optIndex].id === current.id) {
       setScore(s => s + 1);
       playCorrectSound(); // 정답 효과음 재생
+    } else {
+      playWrongSound();
+      setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
     }
   };
 
@@ -83,8 +124,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
       return;
     }
     if (index + 1 >= questions.length) {
-      alert(`완료! 점수: ${score} / ${questions.length}`);
-      onBack();
+      setFinished(true);
       return;
     }
     setIndex(i => i + 1);
@@ -157,7 +197,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
         </div>
       )}
 
-      {hasEnough && current && (
+      {hasEnough && !finished && current && (
         <>
           <div style={{ textAlign: 'center', margin: 16 }}>
             {current.imageUrl ? (
@@ -206,7 +246,7 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    padding: '20px',
+                    padding: '10px 20px',
                     borderRadius: 14,
                     border: '2px solid #e0e0e0',
                     backgroundColor: selected === null
@@ -260,6 +300,52 @@ export default function ImageQuiz({ words, onBack }: ImageQuizProps) {
             </div>
           )}
         </>
+      )}
+
+      {hasEnough && finished && (
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <h3 style={{ color: '#333' }}>결과</h3>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#2196F3', margin: '12px 0' }}>
+            점수: {score} / {questions.length}
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
+            {wrongQuestions.length > 0 && (
+              <button
+                onClick={() => {
+                  setQuestions(wrongQuestions);
+                  setWrongQuestions([]);
+                  setIndex(0);
+                  setSelected(null);
+                  setScore(0);
+                  setFinished(false);
+                }}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+              >
+                틀린 문제 다시 풀기 ({wrongQuestions.length})
+              </button>
+            )}
+            <button
+              onClick={onBack}
+              style={{
+                padding: '12px 20px',
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                cursor: 'pointer'
+              }}
+            >
+              뒤로가기
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

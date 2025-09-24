@@ -200,12 +200,7 @@ function App() {
     setSelectedWord(null);
   };
 
-  const handleBackToSourceSelection = () => {
-    setMode('sourceSelection');
-    setSelectedWord(null);
-    setWords([]);
-    setSelectedSource('전체');
-  };
+  // 출처 선택 화면으로 돌아가는 핸들러는 현재 사용하지 않음(버튼 제거됨)
 
   const handleRetry = () => {
     if (selectedSource) {

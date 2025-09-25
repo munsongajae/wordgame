@@ -92,6 +92,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       });
     }
     return qs;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eligible, questionCount, gameKey]);
 
   const current = questions[index];

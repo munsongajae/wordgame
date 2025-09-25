@@ -335,7 +335,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
   }, [gameKey]);
 
   // 문장 데이터
-  const sentences = useMemo(() => generateSentences(), [generateSentences, gameKey]);
+  const sentences = useMemo(() => generateSentences(), [generateSentences]);
   const totalQuestions = questionCount || sentences.length;
   const current = sentences[currentIndex];
 
@@ -396,7 +396,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setTimeout(() => {
       next();
     }, 2000);
-  }, [current, playCorrectSound, playWrongSound]);
+  }, [current, playCorrectSound, playWrongSound, next]);
 
   // 단어 클릭 핸들러
   const handleWordClick = useCallback((word: string) => {

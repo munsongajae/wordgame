@@ -396,7 +396,8 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setTimeout(() => {
       next();
     }, 2000);
-  }, [current, playCorrectSound, playWrongSound, next]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, playCorrectSound, playWrongSound]);
 
   // 단어 클릭 핸들러
   const handleWordClick = useCallback((word: string) => {

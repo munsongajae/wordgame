@@ -92,7 +92,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       });
     }
     return qs;
-  }, [eligible, questionCount]);
+  }, [eligible, questionCount, gameKey]);
 
   const current = questions[index];
 

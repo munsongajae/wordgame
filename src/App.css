@@ -80,6 +80,61 @@ body {
   padding: 20px;
 }
 
+/* 메인 카테고리 그리드 */
+.main-categories {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.category-card {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.category-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.category-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.category-subtitle {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: normal;
+}
+
+/* 카테고리별 세부 화면 */
+.category-detail {
+  max-width: 1000px;
+  margin: 20px auto;
+  padding: 20px;
+}
+
 .action-buttons {
   text-align: center;
   margin-bottom: 30px;
@@ -137,6 +192,18 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+.quiz-button.highlight {
+  background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
+  font-size: 20px;
+  padding: 20px 40px;
+  animation: pulse 3s infinite;
+}
+
+.quiz-button.highlight:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(156, 39, 176, 0.3);
 }
 
 .no-words-message {

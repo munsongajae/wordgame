@@ -451,6 +451,21 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
           빈칸
         </button>
         <button
+          onClick={() => setActiveTab('sentenceGame')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'sentenceGame' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'sentenceGame' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          문장
+        </button>
+        <button
           onClick={() => setActiveTab('combinedQuiz')}
           style={{
             padding: '10px 20px',

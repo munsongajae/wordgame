@@ -3,7 +3,7 @@ import { logAttempt, saveSession, updateProgress } from '../services/trackingSer
 import { addRecord, isNewRecord, createRecordFromQuizResult } from '../services/rankingService';
 import { Word } from '../types/word';
 
-type QuizType = 'image' | 'spelling' | 'meaning';
+type QuizType = 'image' | 'spelling' | 'meaning' | 'listening';
 
 interface CombinedQuizProps {
   words: Word[];
@@ -24,34 +24,143 @@ function pickRandom<T>(arr: T[], count: number): T[] {
 }
 
 const playCorrectSound = () => {
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-  oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-  oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
-  oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
-  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
-  oscillator.start(audioContext.currentTime);
-  oscillator.stop(audioContext.currentTime + 0.4);
+  try {
+    console.log('종합 퀴즈 정답 사운드 재생 시도 - success.mp3 파일 사용');
+    
+    // 사용자가 제공한 success.mp3 파일 재생
+    const audio = new Audio('/success.mp3');
+    audio.volume = 0.7;
+    
+    audio.play()
+      .then(() => {
+        console.log('종합 퀴즈 정답 사운드 재생 완료 - success.mp3');
+      })
+      .catch((error) => {
+        console.error('success.mp3 재생 실패, 폴백 사운드 재생:', error);
+        
+        // 실패 시 기본 Web Audio API 소리 재생
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+          oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
+          oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.4);
+          
+          console.log('종합 퀴즈 폴백 정답 사운드 재생 완료');
+        } catch (fallbackError) {
+          console.error('종합 퀴즈 폴백 사운드도 실패:', fallbackError);
+        }
+      });
+  } catch (error) {
+    console.error('종합 퀴즈 정답 사운드 재생 전체 실패:', error);
+  }
+};
+
+const playRecordSound = () => {
+  try {
+    console.log('종합 퀴즈 신기록 사운드 재생 시도 - record.mp3 파일 사용');
+    
+    // 사용자가 제공한 record.mp3 파일 재생
+    const audio = new Audio('/record.mp3');
+    audio.volume = 0.7;
+    
+    audio.play()
+      .then(() => {
+        console.log('종합 퀴즈 신기록 사운드 재생 완료 - record.mp3');
+      })
+      .catch((error) => {
+        console.error('record.mp3 재생 실패, 폴백 사운드 재생:', error);
+        
+        // 실패 시 기본 Web Audio API 소리 재생 (축하하는 느낌의 소리)
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator1 = audioContext.createOscillator();
+          const oscillator2 = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          // 화음으로 축하하는 느낌
+          oscillator1.type = 'sine';
+          oscillator1.frequency.setValueAtTime(523, audioContext.currentTime); // C5
+          oscillator1.frequency.setValueAtTime(659, audioContext.currentTime + 0.1); // E5
+          oscillator1.frequency.setValueAtTime(784, audioContext.currentTime + 0.2); // G5
+
+          oscillator2.type = 'sine';
+          oscillator2.frequency.setValueAtTime(659, audioContext.currentTime); // E5
+          oscillator2.frequency.setValueAtTime(784, audioContext.currentTime + 0.1); // G5
+          oscillator2.frequency.setValueAtTime(1047, audioContext.currentTime + 0.2); // C6
+
+          oscillator1.connect(gainNode);
+          oscillator2.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+
+          oscillator1.start(audioContext.currentTime);
+          oscillator2.start(audioContext.currentTime);
+
+          setTimeout(() => {
+            oscillator1.stop();
+            oscillator2.stop();
+            audioContext.close();
+          }, 800);
+          
+          console.log('종합 퀴즈 폴백 신기록 사운드 재생 완료');
+        } catch (fallbackError) {
+          console.error('종합 퀴즈 폴백 신기록 사운드도 실패:', fallbackError);
+        }
+      });
+  } catch (error) {
+    console.error('종합 퀴즈 신기록 사운드 재생 전체 실패:', error);
+  }
 };
 
 const playWrongSound = () => {
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  oscillator.type = 'sawtooth';
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
-  gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
-  oscillator.start(audioContext.currentTime);
-  oscillator.stop(audioContext.currentTime + 0.25);
+  try {
+    console.log('종합 퀴즈 오답 사운드 재생 시도 - wrong.mp3 파일 사용');
+    
+    // 사용자가 제공한 wrong.mp3 파일 재생
+    const audio = new Audio('/wrong.mp3');
+    audio.volume = 0.7;
+    
+    audio.play()
+      .then(() => {
+        console.log('종합 퀴즈 오답 사운드 재생 완료 - wrong.mp3');
+      })
+      .catch((error) => {
+        console.error('wrong.mp3 재생 실패, 폴백 사운드 재생:', error);
+        
+        // 실패 시 기본 Web Audio API 소리 재생
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.type = 'sawtooth';
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
+          gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.25);
+          
+          console.log('종합 퀴즈 폴백 오답 사운드 재생 완료');
+        } catch (fallbackError) {
+          console.error('종합 퀴즈 폴백 오답 사운드도 실패:', fallbackError);
+        }
+      });
+  } catch (error) {
+    console.error('종합 퀴즈 오답 사운드 재생 전체 실패:', error);
+  }
 };
 
 export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
@@ -92,7 +201,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
     // 유형 시퀀스 생성
     const types: QuizType[] = [];
     for (let i = 0; i < count; i++) {
-      const choices: QuizType[] = ['spelling', 'meaning', 'image'];
+      const choices: QuizType[] = ['spelling', 'meaning', 'image', 'listening'];
       const cur = picked[i];
       if (!cur?.imageUrl || wordsWithImage.length < NUM_OPTIONS) {
         // 이미지 부족 시 이미지 유형 제외
@@ -117,19 +226,42 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
   // 타이머 및 3초 비프음
   const playCountdownBeep = () => {
     try {
-      const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
-      const audioContext = new AudioCtx();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
-    } catch {}
+      console.log('종합 퀴즈 타이머 사운드 재생 시도 - timer.mp3 파일 사용');
+      
+      // 사용자가 제공한 timer.mp3 파일 재생
+      const audio = new Audio('/timer.mp3');
+      audio.volume = 0.5;
+      
+      audio.play()
+        .then(() => {
+          console.log('종합 퀴즈 타이머 사운드 재생 완료 - timer.mp3');
+        })
+        .catch((error) => {
+          console.error('timer.mp3 재생 실패, 폴백 사운드 재생:', error);
+          
+          // 실패 시 기본 Web Audio API 소리 재생
+          try {
+            const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+            const audioContext = new AudioCtx();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
+            
+            console.log('종합 퀴즈 폴백 타이머 사운드 재생 완료');
+          } catch (fallbackError) {
+            console.error('종합 퀴즈 폴백 타이머 사운드도 실패:', fallbackError);
+          }
+        });
+    } catch (error) {
+      console.error('종합 퀴즈 타이머 사운드 재생 전체 실패:', error);
+    }
   };
 
   const current = questions[index] || null;
@@ -142,6 +274,15 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
     if (index === 0 && quizStartTime === 0) {
       setQuizStartTime(Date.now());
     }
+    
+    // 듣기 퀴즈일 때 자동으로 발음 재생
+    let playAudioTimeout: number | null = null;
+    if (currentType === 'listening') {
+      playAudioTimeout = window.setTimeout(() => {
+        speakWord(current.english);
+      }, 500); // 0.5초 후에 자동 재생
+    }
+    
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -163,15 +304,22 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
           }
         }
         const nextValue = Math.max(0, prev - 1);
-        if (selectedRef.current === null && nextValue > 0 && nextValue <= 3) {
+        if (selectedRef.current === null && nextValue === 3) {
           playCountdownBeep();
         }
         return nextValue;
       });
     }, 1000);
-    return () => clearInterval(timer);
+    
+    // cleanup 함수: 타이머와 오디오 타임아웃 모두 정리
+    return () => {
+      clearInterval(timer);
+      if (playAudioTimeout !== null) {
+        clearTimeout(playAudioTimeout);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, finished, current]);
+  }, [index, finished, current, currentType]);
 
   const options = useMemo(() => {
     if (!current) return [] as Word[];
@@ -311,7 +459,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
         const types: QuizType[] = [];
         for (let i = 0; i < count; i++) {
           const cur = words[i];
-          const choices: QuizType[] = ['spelling', 'meaning', 'image'];
+          const choices: QuizType[] = ['spelling', 'meaning', 'image', 'listening'];
           if (!cur?.imageUrl || wordsWithImage.length < NUM_OPTIONS) {
             const idx = choices.indexOf('image');
             if (idx >= 0) choices.splice(idx, 1);
@@ -347,6 +495,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
           );
           addRecord(record);
           setIsNewRecordAchieved(true);
+          playRecordSound(); // 신기록 달성 사운드 재생
         }
         
         return;
@@ -463,6 +612,100 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
                   <button type="button" aria-label={`${w.english} 발음 듣기`} onClick={() => speakWord(w.english)}
                     style={{ padding: '8px 10px', fontSize: 18, backgroundColor: '#1976d2', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}>🔊</button>
                 </div>
+              );
+            })}
+          </div>
+        </>
+      );
+    }
+    if (currentType === 'listening') {
+      return (
+        <>
+          {/* 듣기 퀴즈 설명 */}
+          <div style={{ 
+            textAlign: 'center', 
+            margin: '20px auto 40px',
+            padding: '20px',
+            backgroundColor: '#e3f2fd',
+            borderRadius: '12px',
+            border: '2px solid #2196F3',
+            maxWidth: '500px'
+          }}>
+            <div style={{ fontSize: '20px', marginBottom: '10px' }}>🎧</div>
+            <div style={{ fontSize: '16px', color: '#1976d2', fontWeight: 'bold' }}>
+              발음을 듣고 정답을 선택하세요
+            </div>
+          </div>
+
+          {/* 다시 듣기 버튼 */}
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <button
+              onClick={() => speakWord(current.english)}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                backgroundColor: '#FF9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(255,152,0,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                margin: '0 auto',
+                fontWeight: 'bold'
+              }}
+            >
+              🔄 다시 듣기
+            </button>
+          </div>
+
+          {/* 선택지들 */}
+          <div className="options" style={{ 
+            display: 'grid', 
+            gap: '12px', 
+            gridTemplateColumns: '1fr', 
+            justifyItems: 'center', 
+            maxWidth: '520px', 
+            margin: '0 auto' 
+          }}>
+            {options.map((w, i) => {
+              const isCorrect = selected !== null && w.id === current.id;
+              const isWrong = selected === i && w.id !== current.id;
+              return (
+                <button
+                  key={w.id}
+                  onClick={() => handleSelect(i)}
+                  className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
+                  disabled={selected !== null || timeLeft === 0}
+                  style={{
+                    fontSize: '24px',
+                    lineHeight: '1.3',
+                    width: '400px',
+                    textAlign: 'center',
+                    padding: '20px 30px',
+                    borderRadius: '14px',
+                    border: '2px solid #e0e0e0',
+                    backgroundColor: selected === null
+                      ? '#fff'
+                      : isCorrect
+                        ? '#4CAF50'
+                        : isWrong
+                          ? '#F44336'
+                          : '#f5f5f5',
+                    color: selected === null
+                      ? '#333'
+                      : isCorrect || isWrong
+                        ? '#fff'
+                        : '#666',
+                    boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                    transition: 'all 0.2s ease',
+                    cursor: selected !== null || timeLeft === 0 ? 'default' : 'pointer'
+                  }}
+                >
+                  {w.english}
+                </button>
               );
             })}
           </div>

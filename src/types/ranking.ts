@@ -1,6 +1,6 @@
 export interface RankingRecord {
   id: string;
-  quizType: 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'combinedQuiz';
+  quizType: 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'combinedQuiz' | 'listeningQuiz' | 'spellingGame' | 'fillBlankGame';
   userName: '열음이' | '지음이';
   score: number;
   totalQuestions: number;
@@ -11,7 +11,7 @@ export interface RankingRecord {
 }
 
 export interface RankingDisplay {
-  quizType: 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'combinedQuiz';
+  quizType: 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'combinedQuiz' | 'listeningQuiz' | 'spellingGame' | 'fillBlankGame';
   quizName: string;
   records: RankingRecord[];
 }

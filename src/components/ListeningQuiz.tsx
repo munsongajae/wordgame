@@ -6,7 +6,7 @@ import { Word } from '../types/word';
 // 정답 효과음 재생 함수 (사용자 제공 파일 사용)
 const playCorrectSound = () => {
   try {
-    console.log('철자 퀴즈 정답 사운드 재생 시도 - success.mp3 파일 사용');
+    console.log('듣기 퀴즈 정답 사운드 재생 시도 - success.mp3 파일 사용');
     
     // 사용자가 제공한 success.mp3 파일 재생
     const audio = new Audio('/success.mp3');
@@ -14,7 +14,7 @@ const playCorrectSound = () => {
     
     audio.play()
       .then(() => {
-        console.log('철자 퀴즈 정답 사운드 재생 완료 - success.mp3');
+        console.log('듣기 퀴즈 정답 사운드 재생 완료 - success.mp3');
       })
       .catch((error) => {
         console.error('success.mp3 재생 실패, 폴백 사운드 재생:', error);
@@ -42,20 +42,20 @@ const playCorrectSound = () => {
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.4);
           
-          console.log('철자 퀴즈 폴백 정답 사운드 재생 완료');
+          console.log('듣기 퀴즈 폴백 정답 사운드 재생 완료');
         } catch (fallbackError) {
-          console.error('철자 퀴즈 폴백 사운드도 실패:', fallbackError);
+          console.error('듣기 퀴즈 폴백 사운드도 실패:', fallbackError);
         }
       });
   } catch (error) {
-    console.error('철자 퀴즈 정답 사운드 재생 전체 실패:', error);
+    console.error('듣기 퀴즈 정답 사운드 재생 전체 실패:', error);
   }
 };
 
 // 신기록 달성 사운드 재생 함수 (사용자 제공 파일 사용)
 const playRecordSound = () => {
   try {
-    console.log('철자 퀴즈 신기록 사운드 재생 시도 - record.mp3 파일 사용');
+    console.log('듣기 퀴즈 신기록 사운드 재생 시도 - record.mp3 파일 사용');
     
     // 사용자가 제공한 record.mp3 파일 재생
     const audio = new Audio('/record.mp3');
@@ -63,7 +63,7 @@ const playRecordSound = () => {
     
     audio.play()
       .then(() => {
-        console.log('철자 퀴즈 신기록 사운드 재생 완료 - record.mp3');
+        console.log('듣기 퀴즈 신기록 사운드 재생 완료 - record.mp3');
       })
       .catch((error) => {
         console.error('record.mp3 재생 실패, 폴백 사운드 재생:', error);
@@ -102,20 +102,20 @@ const playRecordSound = () => {
             audioContext.close();
           }, 800);
           
-          console.log('철자 퀴즈 폴백 신기록 사운드 재생 완료');
+          console.log('듣기 퀴즈 폴백 신기록 사운드 재생 완료');
         } catch (fallbackError) {
-          console.error('철자 퀴즈 폴백 신기록 사운드도 실패:', fallbackError);
+          console.error('듣기 퀴즈 폴백 신기록 사운드도 실패:', fallbackError);
         }
       });
   } catch (error) {
-    console.error('철자 퀴즈 신기록 사운드 재생 전체 실패:', error);
+    console.error('듣기 퀴즈 신기록 사운드 재생 전체 실패:', error);
   }
 };
 
 // 오답 효과음 재생 함수 (사용자 제공 파일 사용)
 const playWrongSound = () => {
   try {
-    console.log('철자 퀴즈 오답 사운드 재생 시도 - wrong.mp3 파일 사용');
+    console.log('듣기 퀴즈 오답 사운드 재생 시도 - wrong.mp3 파일 사용');
     
     // 사용자가 제공한 wrong.mp3 파일 재생
     const audio = new Audio('/wrong.mp3');
@@ -123,7 +123,7 @@ const playWrongSound = () => {
     
     audio.play()
       .then(() => {
-        console.log('철자 퀴즈 오답 사운드 재생 완료 - wrong.mp3');
+        console.log('듣기 퀴즈 오답 사운드 재생 완료 - wrong.mp3');
       })
       .catch((error) => {
         console.error('wrong.mp3 재생 실패, 폴백 사운드 재생:', error);
@@ -138,6 +138,7 @@ const playWrongSound = () => {
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
 
+          // 불편한 하강 톤
           oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
           oscillator.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.25);
 
@@ -147,23 +148,24 @@ const playWrongSound = () => {
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.25);
           
-          console.log('철자 퀴즈 폴백 오답 사운드 재생 완료');
+          console.log('듣기 퀴즈 폴백 오답 사운드 재생 완료');
         } catch (fallbackError) {
-          console.error('철자 퀴즈 폴백 오답 사운드도 실패:', fallbackError);
+          console.error('듣기 퀴즈 폴백 오답 사운드도 실패:', fallbackError);
         }
       });
   } catch (error) {
-    console.error('철자 퀴즈 오답 사운드 재생 전체 실패:', error);
+    console.error('듣기 퀴즈 오답 사운드 재생 전체 실패:', error);
   }
 };
 
-interface SpellingQuizProps {
+interface ListeningQuizProps {
   words: Word[];
   onBack: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const NUM_QUESTIONS = 10; // 기본값(선택 전 표시용)
+const NUM_OPTIONS = 4;
 const AUTO_NEXT_DELAY_MS = 800; // 정답 시 자동 진행 지연 시간
 const COUNTDOWN_BEEP_DURATION = 0.12; // 마지막 3초 비프음 길이(초)
 
@@ -176,133 +178,126 @@ function pickRandom<T>(arr: T[], count: number): T[] {
   return copy.slice(0, count);
 }
 
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
+export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
+  const eligible = useMemo(() => words, [words]); // 모든 단어가 듣기 퀴즈에 사용 가능
+  const hasEnough = eligible.length >= NUM_OPTIONS;
   const [questions, setQuestions] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [checked, setChecked] = useState<boolean | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
-  const [showImage, setShowImage] = useState(true); // true: 그림, false: 한글
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
   const [finished, setFinished] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(10);
-  const autoNextTimeoutRef = React.useRef<number | null>(null);
+  const selectedRef = useRef<number | null>(null);
+  const autoNextTimeoutRef = useRef<number | null>(null);
   const [questionCount, setQuestionCount] = useState<null | number | 'infinite'>(null);
   const [quizStartTime, setQuizStartTime] = useState<number>(0);
   const [isNewRecordAchieved, setIsNewRecordAchieved] = useState<boolean>(false);
-
-  // 마지막 3초 카운트다운 비프음
-  const playCountdownBeep = () => {
-    try {
-      console.log('철자 퀴즈 타이머 사운드 재생 시도 - timer.mp3 파일 사용');
-      
-      // 사용자가 제공한 timer.mp3 파일 재생
-      const audio = new Audio('/timer.mp3');
-      audio.volume = 0.5;
-      
-      audio.play()
-        .then(() => {
-          console.log('철자 퀴즈 타이머 사운드 재생 완료 - timer.mp3');
-        })
-        .catch((error) => {
-          console.error('timer.mp3 재생 실패, 폴백 사운드 재생:', error);
-          
-          // 실패 시 기본 Web Audio API 소리 재생
-          try {
-            const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
-            const audioContext = new AudioCtx();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.start();
-            oscillator.stop(audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
-            
-            console.log('철자 퀴즈 폴백 타이머 사운드 재생 완료');
-          } catch (fallbackError) {
-            console.error('철자 퀴즈 폴백 타이머 사운드도 실패:', fallbackError);
-          }
-        });
-    } catch (error) {
-      console.error('철자 퀴즈 타이머 사운드 재생 전체 실패:', error);
-    }
-  };
+  const [hasPlayedCurrentAudio, setHasPlayedCurrentAudio] = useState(false);
 
   useEffect(() => {
-    if (questionCount === null) return; // 아직 선택 전이면 초기화하지 않음
-    const count = questionCount === 'infinite' ? Math.min(4, words.length) : Math.min(questionCount, words.length);
-    const qs = pickRandom(words, count);
-    setQuestions(qs);
-    setIndex(0);
-    setSelectedAnswer(null);
-    setChecked(null);
-    setScore(0);
-    setShowImage(true);
-    setWrongQuestions([]);
-    setFinished(false);
-    setSessionId(null);
-    setTimeLeft(10);
-    // quizStartTime은 첫 번째 문제 시작 시에 설정
-  }, [words, questionCount]);
+    selectedRef.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     scoreRef.current = score;
   }, [score]);
 
-  const currentQuestion = useMemo(() => {
-    if (questions.length === 0) return null;
-    
-    const current = questions[index];
-    const correctAnswer = current.english;
-    
-    // 다른 단어들에서 3개를 랜덤하게 선택
-    const otherWords = words.filter(word => word.english !== correctAnswer);
-    const availableWrongAnswers = Math.min(3, otherWords.length);
-    const wrongAnswers = pickRandom(otherWords, availableWrongAnswers);
-    
-    // 정답과 오답들을 섞어서 4지 선다형 만들기
-    const allOptions = shuffleArray([current, ...wrongAnswers]);
-    
-    return {
-      word: current,
-      options: allOptions,
-      correctAnswer
-    };
-  }, [questions, index, words]);
-
   useEffect(() => {
-    if (finished || !currentQuestion) return;
+    if (!hasEnough) {
+      setQuestions([]);
+      setIndex(0);
+      setSelected(null);
+      setScore(0);
+      setWrongQuestions([]);
+      setFinished(false);
+      setTimeLeft(10);
+      return;
+    }
+    if (questionCount === null) return; // 아직 선택 전이면 초기화하지 않음
+    const count = questionCount === 'infinite' ? eligible.length : Math.min(questionCount, eligible.length);
+    setQuestions(pickRandom(eligible, count));
+    setIndex(0);
+    setSelected(null);
+    setScore(0);
+    setWrongQuestions([]);
+    setFinished(false);
     setTimeLeft(10);
+    setHasPlayedCurrentAudio(false);
+  }, [eligible, hasEnough, questionCount]);
+
+  const current = questions[index] || null;
+
+  // 10초 타이머
+  useEffect(() => {
+    if (finished || !current) return;
+    setTimeLeft(10);
+    setHasPlayedCurrentAudio(false);
+    
     // 첫 번째 문제 시작 시에만 퀴즈 시작 시간 기록
     if (index === 0 && quizStartTime === 0) {
       setQuizStartTime(Date.now());
     }
+    
+    // 새 문제가 시작되면 자동으로 발음 재생 (정답 사운드와 겹치지 않도록 지연)
+    const playAudioTimeout = setTimeout(() => {
+      console.log('자동 발음 재생 시도:', {
+        current: current?.english,
+        hasPlayedCurrentAudio,
+        finished,
+        index,
+        currentId: current?.id,
+        questionsId: questions[index]?.id
+      });
+      
+      if (current && !hasPlayedCurrentAudio && !finished && questions[index]?.id === current.id) {
+        // 이전 음성을 강제로 취소 (여러 번 시도)
+        window.speechSynthesis.cancel();
+        
+        // 더 안전한 지연 시간으로 재생
+        setTimeout(() => {
+          // 재생 전 한 번 더 확인 (문제가 바뀌지 않았는지)
+          if (current && !finished && questions[index]?.id === current.id && !hasPlayedCurrentAudio) {
+            console.log('발음 재생 실행:', current.english);
+            
+            // TTS가 이미 실행 중이지 않은지 확인
+            if (!window.speechSynthesis.speaking) {
+              speakWord(current.english);
+              setHasPlayedCurrentAudio(true);
+            } else {
+              console.log('TTS가 이미 실행 중이므로 재시도');
+              // TTS가 실행 중이면 잠시 후 재시도
+              setTimeout(() => {
+                if (current && !finished && questions[index]?.id === current.id && !hasPlayedCurrentAudio) {
+                  window.speechSynthesis.cancel();
+                  setTimeout(() => {
+                    speakWord(current.english);
+                    setHasPlayedCurrentAudio(true);
+                  }, 100);
+                }
+              }, 500);
+            }
+          }
+        }, 200); // 취소 후 더 긴 지연 (200ms)
+      }
+    }, 1300); // 1.3초 후에 자동 재생 (더 여유있게)
+    
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          if (checked === null && currentQuestion) {
+          // 시간 초과 처리: 아직 선택 안 했다면 오답 처리
+          if (selectedRef.current === null && current) {
+            const cur = current; // snapshot to avoid stale/undefined references
             const isCorrect = false;
+            console.log(`시간 초과! 점수 변화 없음 (문제 ${index + 1}/${questions.length})`);
             playWrongSound();
-            setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
-            logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
-            updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
-            setChecked(false);
+            setWrongQuestions(prevW => (cur && prevW.some(w => w.id === cur.id) ? prevW : cur ? [...prevW, cur] : prevW));
+            try { if (cur) logAttempt({ sessionId, mode: 'listeningQuiz', wordId: cur.id, correct: isCorrect }); } catch {}
+            try { if (cur) updateProgress({ wordId: cur.id, correct: isCorrect }); } catch {}
+            setSelected(-1 as any);
             // 시간 초과 시에도 자동으로 다음 문제로 이동
             if (autoNextTimeoutRef.current !== null) {
               clearTimeout(autoNextTimeoutRef.current);
@@ -314,21 +309,154 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           }
         }
         const nextValue = Math.max(0, prev - 1);
-        // 3초에서만 비프음. 이미 답 확인한 경우는 재생하지 않음
-        if (checked === null && nextValue === 3) {
+        // 3초에서만 비프음. 이미 선택했다면 재생하지 않음
+        if (selectedRef.current === null && nextValue === 3) {
           playCountdownBeep();
         }
         return nextValue;
       });
     }, 1000);
-    return () => clearInterval(timer);
+    
+    return () => {
+      clearInterval(timer);
+      clearTimeout(playAudioTimeout);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, finished, currentQuestion]);
+  }, [index, finished, current]);
 
-  const speakCurrentWord = () => {
-    if (!currentQuestion) return;
-    if ('speechSynthesis' in window) {
-      // 음성 목록을 다시 로드
+  const options = useMemo(() => {
+    if (!current) return [] as Word[];
+    const others = pickRandom(
+      eligible.filter(w => w.id !== current.id),
+      Math.max(0, NUM_OPTIONS - 1)
+    );
+    const pool = [...others, current];
+    return pickRandom(pool, pool.length);
+  }, [current, eligible]);
+
+  const handleSelect = (optIndex: number) => {
+    if (selected !== null || !current || !options[optIndex] || timeLeft === 0) return;
+    setSelected(optIndex);
+    if (options[optIndex].id === current.id) {
+      setScore(s => {
+        const newScore = s + 1;
+        console.log(`정답! 점수 증가: ${s} → ${newScore} (문제 ${index + 1}/${questions.length})`);
+        return newScore;
+      });
+      playCorrectSound(); // 정답 효과음 재생
+      // 정답이면 일정 시간 후 자동으로 다음 문제로 이동
+      if (autoNextTimeoutRef.current !== null) {
+        clearTimeout(autoNextTimeoutRef.current);
+      }
+      autoNextTimeoutRef.current = window.setTimeout(() => {
+        autoNextTimeoutRef.current = null;
+        next();
+      }, AUTO_NEXT_DELAY_MS);
+    } else {
+      console.log(`오답! 점수 변화 없음 (문제 ${index + 1}/${questions.length})`);
+      playWrongSound();
+      setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
+      // 오답이어도 자동으로 다음 문제로 이동
+      if (autoNextTimeoutRef.current !== null) {
+        clearTimeout(autoNextTimeoutRef.current);
+      }
+      autoNextTimeoutRef.current = window.setTimeout(() => {
+        autoNextTimeoutRef.current = null;
+        next();
+      }, AUTO_NEXT_DELAY_MS);
+    }
+    // log attempt & SRS
+    logAttempt({ sessionId, mode: 'listeningQuiz', wordId: current.id, correct: options[optIndex].id === current.id });
+    updateProgress({ wordId: current.id, correct: options[optIndex].id === current.id });
+  };
+
+  const next = () => {
+    // 중복 이동 방지: 수동 이동 시 예약된 자동 이동 취소
+    if (autoNextTimeoutRef.current !== null) {
+      clearTimeout(autoNextTimeoutRef.current);
+      autoNextTimeoutRef.current = null;
+    }
+    if (!current) {
+      onBack();
+      return;
+    }
+    if (index + 1 >= questions.length) {
+      if (questionCount === 'infinite') {
+        // 무제한 모드: 새로 셔플하여 이어서 진행
+        const count = eligible.length;
+        setQuestions(pickRandom(eligible, count));
+        setIndex(0);
+        setSelected(null);
+        setTimeLeft(10);
+        setQuizStartTime(Date.now()); // 무제한 모드에서 새로운 세션 시작 시간 기록
+        return;
+      } else {
+        setFinished(true);
+        if (!sessionId) {
+          const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
+          saveSession({ mode: 'listeningQuiz', score: scoreRef.current, total: questions.length, durationSec }).then(id => setSessionId(id));
+        }
+        
+        // 순위 기록 업데이트
+        const totalTimeMs = Date.now() - quizStartTime;
+        const finalScore = scoreRef.current; // 최신 점수 사용
+        const accuracy = Math.round((finalScore / questions.length) * 100);
+        
+        console.log('퀴즈 완료 - 순위 기록 확인:', {
+          score,
+          finalScore,
+          totalQuestions: questions.length,
+          totalTimeMs,
+          accuracy,
+          questionCount,
+          scoreType: typeof finalScore,
+          totalType: typeof questions.length,
+          calculation: `(${finalScore} / ${questions.length}) * 100 = ${(finalScore / questions.length) * 100}`
+        });
+        
+        if (isNewRecord('listeningQuiz', totalTimeMs, accuracy, questionCount || 'infinite')) {
+          const record = createRecordFromQuizResult(
+            'listeningQuiz',
+            finalScore, // 최신 점수 사용
+            questions.length,
+            quizStartTime,
+            Date.now(),
+            questionCount || 'infinite'
+          );
+          const success = addRecord(record);
+          if (success) {
+            setIsNewRecordAchieved(true);
+            playRecordSound(); // 신기록 달성 사운드 재생
+          }
+        }
+        
+        return;
+      }
+    }
+    setIndex(i => i + 1);
+    setSelected(null);
+    setHasPlayedCurrentAudio(false); // 다음 문제를 위해 초기화
+  };
+
+  const speakWord = (text: string) => {
+    if (!("speechSynthesis" in window)) {
+      alert('이 브라우저에서는 음성 합성이 지원되지 않습니다.');
+      return;
+    }
+    try {
+      console.log('speakWord 호출:', text);
+      
+      // 이전 음성을 확실히 취소 (여러 번 시도)
+      window.speechSynthesis.cancel();
+      
+      // 잠시 후 한 번 더 취소 (브라우저에 따라 즉시 취소되지 않을 수 있음)
+      setTimeout(() => {
+        window.speechSynthesis.cancel();
+      }, 50);
+      
+      // 취소 후 충분한 지연을 두고 새 음성 재생
+      setTimeout(() => {
+        // 음성 목록을 다시 로드
       const loadVoices = () => {
         return new Promise<SpeechSynthesisVoice[]>((resolve) => {
           const voices = window.speechSynthesis.getVoices();
@@ -358,10 +486,10 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
       } catch {}
 
       loadVoices().then(voices => {
-        const utter = new SpeechSynthesisUtterance(currentQuestion.word.english);
-        utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-        utter.rate = rate;
-        utter.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+        utterance.rate = rate;
+        utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
         
         console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })));
         
@@ -393,116 +521,64 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           }
           
           if (selectedVoice) {
-            utter.voice = selectedVoice;
+            utterance.voice = selectedVoice;
             console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
           }
         }
         
-        window.speechSynthesis.speak(utter);
+        window.speechSynthesis.speak(utterance);
       }).catch(() => {
-        const utter = new SpeechSynthesisUtterance(currentQuestion.word.english);
-        utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-        utter.rate = rate;
-        utter.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
-        window.speechSynthesis.speak(utter);
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+        utterance.rate = rate;
+        utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+        window.speechSynthesis.speak(utterance);
       });
+      }, 250); // 취소 후 250ms 지연 (더 안전하게)
+    } catch (e) {
+      console.error('발음 재생 오류:', e);
     }
   };
 
-  if (words.length === 0) {
-    return (
-      <div className="quiz-container">
-        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
-        <p>단어가 없습니다.</p>
-      </div>
-    );
-  }
-
-  const handleAnswerSelect = (option: Word) => {
-    if (checked !== null || timeLeft === 0 || !currentQuestion) return; // 이미 답을 확인한 경우 또는 currentQuestion이 없는 경우
-    
-    setSelectedAnswer(option.english);
-    const isCorrect = option.english === currentQuestion.correctAnswer;
-    setChecked(isCorrect);
-    if (isCorrect) {
-      setScore(s => s + 1);
-      playCorrectSound(); // 정답 효과음 재생
-      // 정답이면 일정 시간 후 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
-    } else {
-      playWrongSound();
-      setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
-      // 오답이어도 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
+  // 마지막 3초 카운트다운 비프음
+  const playCountdownBeep = () => {
+    try {
+      console.log('듣기 퀴즈 타이머 사운드 재생 시도 - timer.mp3 파일 사용');
+      
+      // 사용자가 제공한 timer.mp3 파일 재생
+      const audio = new Audio('/timer.mp3');
+      audio.volume = 0.5;
+      
+      audio.play()
+        .then(() => {
+          console.log('듣기 퀴즈 타이머 사운드 재생 완료 - timer.mp3');
+        })
+        .catch((error) => {
+          console.error('timer.mp3 재생 실패, 폴백 사운드 재생:', error);
+          
+          // 실패 시 기본 Web Audio API 소리 재생
+          try {
+            const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+            const audioContext = new AudioCtx();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
+            
+            console.log('듣기 퀴즈 폴백 타이머 사운드 재생 완료');
+          } catch (fallbackError) {
+            console.error('듣기 퀴즈 폴백 타이머 사운드도 실패:', fallbackError);
+          }
+        });
+    } catch (error) {
+      console.error('듣기 퀴즈 타이머 사운드 재생 전체 실패:', error);
     }
-    // Log attempt & SRS update
-    logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
-    updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
-  };
-
-  const next = () => {
-    // 중복 이동 방지: 수동 이동 시 예약된 자동 이동 취소
-    if (autoNextTimeoutRef.current !== null) {
-      clearTimeout(autoNextTimeoutRef.current);
-      autoNextTimeoutRef.current = null;
-    }
-    if (index + 1 >= questions.length) {
-      if (questionCount === 'infinite') {
-        const count = Math.min(4, words.length);
-        setQuestions(pickRandom(words, count));
-        setIndex(0);
-        setSelectedAnswer(null);
-        setChecked(null);
-        setShowImage(true);
-        setTimeLeft(10);
-        setQuizStartTime(Date.now()); // 무제한 모드에서 새로운 세션 시작 시간 기록
-        return;
-      } else {
-        setFinished(true);
-        // Save session once per completion
-        if (!sessionId) {
-          const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-          saveSession({ mode: 'spellingQuiz', score: scoreRef.current, total: questions.length, durationSec }).then(id => setSessionId(id));
-        }
-        
-        // 순위 기록 업데이트
-        const totalTimeMs = Date.now() - quizStartTime;
-        const finalScore = scoreRef.current; // 최신 점수 사용
-        const accuracy = Math.round((finalScore / questions.length) * 100);
-        
-        if (isNewRecord('spellingQuiz', totalTimeMs, accuracy, questionCount || 'infinite')) {
-          const record = createRecordFromQuizResult(
-            'spellingQuiz',
-            finalScore, // 최신 점수 사용
-            questions.length,
-            quizStartTime,
-            Date.now(),
-            questionCount || 'infinite'
-          );
-          addRecord(record);
-          setIsNewRecordAchieved(true);
-          playRecordSound(); // 신기록 달성 사운드 재생
-        }
-        
-        return;
-      }
-    }
-    setIndex(i => i + 1);
-    setSelectedAnswer(null);
-    setChecked(null);
-    setShowImage(true); // 다음 문제로 넘어갈 때 그림으로 초기화
   };
 
   return (
@@ -516,7 +592,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
       }}>
         <button className="back-button" onClick={onBack}>← 뒤로가기</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
-          <h2 style={{ margin: 0, color: '#333' }}>🔤 철자 보고 맞추기 ({index + 1}/{questions.length})</h2>
+          <h2 style={{ margin: 0, color: '#333' }}>🎧 듣기 퀴즈 {current && questionCount !== null ? `(${index + 1}/${questions.length})` : ''}</h2>
         </div>
         <div style={{ 
           backgroundColor: '#f5f5f5', 
@@ -531,10 +607,14 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         </div>
       </div>
 
-      
+      {!hasEnough && (
+        <div style={{ textAlign: 'center' }}>
+          <p>단어가 최소 {NUM_OPTIONS}개 필요합니다.</p>
+        </div>
+      )}
 
       {/* 시작 옵션 선택 */}
-      {questionCount === null && (
+      {hasEnough && questionCount === null && (
         <div style={{ textAlign: 'center', marginTop: 40 }}>
           <h3 style={{ color: '#333', fontSize: '24px', marginBottom: '30px' }}>문제 수를 선택하세요</h3>
           <div style={{ 
@@ -606,166 +686,124 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
         </div>
       )}
 
-      {!finished && questionCount !== null && currentQuestion && (
-        <div className="question-card" style={{ textAlign: 'center' }}>
-        <div className="question-text">다음 철자를 보고 올바른 단어를 선택하세요</div>
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '12px 16px',
-              margin: '12px 0 6px 0',
-              backgroundColor: '#ffffff',
-              border: '2px solid #e0e0e0',
-              borderRadius: '14px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-            }}
-          >
-            <div
-              style={{
-                fontSize: 48,
-                fontWeight: 800,
-                color: '#1e88e5',
-                lineHeight: 1.2,
-                letterSpacing: '0.5px'
-              }}
-            >
-              {currentQuestion.word.english}
+      {hasEnough && questionCount !== null && !finished && current && (
+        <>
+          {/* 듣기 퀴즈 설명 */}
+          <div style={{ 
+            textAlign: 'center', 
+            margin: '20px auto 40px',
+            padding: '20px',
+            backgroundColor: '#e3f2fd',
+            borderRadius: '12px',
+            border: '2px solid #2196F3',
+            maxWidth: '500px'
+          }}>
+            <div style={{ fontSize: '20px', marginBottom: '10px' }}>🎧</div>
+            <div style={{ fontSize: '16px', color: '#1976d2', fontWeight: 'bold' }}>
+              발음을 듣고 정답을 선택하세요
+            </div>
+            <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+              문제가 시작되면 자동으로 발음이 재생됩니다
             </div>
           </div>
-          <div style={{ textAlign: 'center', marginBottom: 10 }}>
+
+          {/* 다시 듣기 버튼 */}
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <button
-              onClick={speakCurrentWord}
+              onClick={() => speakWord(current.english)}
               style={{
-                padding: '10px 16px',
-                fontSize: 14,
-                backgroundColor: '#4CAF50',
+                padding: '15px 30px',
+                fontSize: '18px',
+                backgroundColor: '#FF9800',
                 color: '#fff',
                 border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer'
+                borderRadius: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(255,152,0,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                margin: '0 auto',
+                fontWeight: 'bold'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#F57C00';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,152,0,0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#FF9800';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,152,0,0.3)';
               }}
             >
-              🔊 발음 듣기
+              🔄 다시 듣기
             </button>
           </div>
-        
-        {/* 표시 방식 선택 버튼 */}
-        <div style={{ textAlign: 'center', margin: '16px 0' }}>
-          <div style={{ display: 'inline-flex', gap: '8px', backgroundColor: '#f5f5f5', padding: '4px', borderRadius: '8px' }}>
-            <button
-              onClick={() => setShowImage(true)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: showImage ? '#2196F3' : 'transparent',
-                color: showImage ? 'white' : '#666',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-            >
-              그림
-            </button>
-            <button
-              onClick={() => setShowImage(false)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: showImage ? 'transparent' : '#2196F3',
-                color: showImage ? '#666' : 'white',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-            >
-              한글
-            </button>
-          </div>
-        </div>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '8px auto', maxWidth: '380px' }}>
-          {currentQuestion.options.map((option, optionIndex) => {
-            const isCorrect = checked !== null && option.english === currentQuestion.correctAnswer;
-            const isWrong = selectedAnswer === option.english && option.english !== currentQuestion.correctAnswer;
-            
-            return (
-              <button
-                key={optionIndex}
-                onClick={() => handleAnswerSelect(option)}
-                disabled={checked !== null || timeLeft === 0}
-                style={{
-                  padding: 0,
-                  fontSize: '16px',
-                  fontWeight: '800',
-                  borderRadius: '10px',
-                  border: '2px solid #e0e0e0',
-                  backgroundColor: checked === null 
-                    ? '#fff' 
-                    : isCorrect
-                      ? '#4CAF50' 
-                      : isWrong
-                        ? '#F44336' 
-                        : '#f5f5f5',
-                  color: checked === null 
-                    ? '#333' 
-                    : isCorrect
-                      ? '#fff' 
-                      : isWrong
-                        ? '#fff' 
-                        : '#666',
-                  cursor: checked === null ? 'pointer' : 'default',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '182px',
-                  height: '182px',
-                  gap: 0,
-                  boxShadow: checked === null ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                }}
-              >
-                {showImage && option.imageUrl ? (
-                  <img 
-                    src={option.imageUrl} 
-                    alt={option.english}
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: '8px'
-                    }}
-                  />
-                ) : (
-                  <div style={{ 
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: '#f0f0f0', 
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '16px',
-                    color: '#999'
-                  }}>
-                    {showImage ? '이미지 없음' : option.korean}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
 
-        
-        {checked !== null && (
-          <div style={{ marginTop: 12, fontWeight: 700, color: checked ? '#4CAF50' : '#F44336' }}>
-            {checked ? '정답입니다! 🎉' : `오답입니다. 정답: ${currentQuestion.correctAnswer}`}
+          {/* 선택지들 */}
+          <div className="options" style={{ 
+            display: 'grid', 
+            gap: '12px', 
+            gridTemplateColumns: '1fr', 
+            justifyItems: 'center', 
+            maxWidth: '520px', 
+            margin: '0 auto' 
+          }}>
+            {options.map((w, i) => {
+              const isCorrect = selected !== null && w.id === current.id;
+              const isWrong = selected === i && w.id !== current.id;
+              return (
+                <button
+                  key={w.id}
+                  onClick={() => handleSelect(i)}
+                  className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
+                  disabled={selected !== null || timeLeft === 0}
+                  style={{
+                    fontSize: '24px',
+                    lineHeight: '1.3',
+                    width: '400px',
+                    textAlign: 'center',
+                    padding: '20px 30px',
+                    borderRadius: '14px',
+                    border: '2px solid #e0e0e0',
+                    backgroundColor: selected === null
+                      ? '#fff'
+                      : isCorrect
+                        ? '#4CAF50'
+                        : isWrong
+                          ? '#F44336'
+                          : '#f5f5f5',
+                    color: selected === null
+                      ? '#333'
+                      : isCorrect || isWrong
+                        ? '#fff'
+                        : '#666',
+                    boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                    transition: 'all 0.2s ease',
+                    cursor: selected !== null || timeLeft === 0 ? 'default' : 'pointer'
+                  }}
+                >
+                  {w.english}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          {selected !== null && (
+            (() => {
+              const isCorrect = (selected as number) >= 0 && options[(selected as number)] && options[(selected as number)].id === current.id;
+              return (
+                <div style={{ marginTop: 20, fontWeight: 700, color: isCorrect ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
+                  {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
+                </div>
+              );
+            })()
+          )}
+        </>
       )}
 
-      {finished && (
+      {hasEnough && finished && (
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
           
@@ -838,34 +876,34 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
             let textColor = '';
             
             if (accuracy === 100) {
-              if (timePerQuestion <= 4) {
-                comment = '완벽합니다! 🚀 철자를 매우 빠르게 파악하셨네요!';
+              if (timePerQuestion <= 3) {
+                comment = '완벽합니다! 🚀 듣기 실력이 훌륭하네요!';
                 emoji = '🏆';
                 bgColor = '#d4edda';
                 textColor = '#155724';
-              } else if (timePerQuestion <= 8) {
-                comment = '훌륭합니다! ✨ 모든 철자를 정확하게 맞추셨어요!';
+              } else if (timePerQuestion <= 6) {
+                comment = '훌륭합니다! ✨ 모든 발음을 정확하게 들으셨어요!';
                 emoji = '🎉';
                 bgColor = '#d1ecf1';
                 textColor = '#0c5460';
               } else {
-                comment = '잘했습니다! 🎯 신중하게 생각해서 완벽한 점수를 받으셨네요!';
+                comment = '잘했습니다! 🎯 신중하게 들어서 완벽한 점수를 받으셨네요!';
                 emoji = '🌟';
                 bgColor = '#fff3cd';
                 textColor = '#856404';
               }
             } else if (accuracy >= 80) {
-              comment = '좋은 성과입니다! 👍 철자 실력이 많이 늘었어요!';
+              comment = '좋은 성과입니다! 👍 듣기 실력이 늘고 있어요!';
               emoji = '💪';
               bgColor = '#e2e3e5';
               textColor = '#383d41';
             } else if (accuracy >= 60) {
-              comment = '괜찮습니다! 📚 철자 연습을 조금 더 해보세요!';
+              comment = '괜찮습니다! 📚 계속 듣기 연습을 하면 더 좋아질 거예요!';
               emoji = '📖';
               bgColor = '#f8d7da';
               textColor = '#721c24';
             } else {
-              comment = '아쉽네요! 🔄 철자를 더 자세히 살펴보며 연습해보세요!';
+              comment = '아쉽네요! 🔄 발음을 더 자주 들어보세요!';
               emoji = '💪';
               bgColor = '#f5c6cb';
               textColor = '#721c24';
@@ -891,7 +929,7 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                 </div>
                 {accuracy !== 100 && (
                   <div style={{ fontSize: '14px', marginTop: '10px', opacity: 0.8 }}>
-                    💡 틀린 단어들의 철자를 다시 확인해보세요!
+                    💡 영어 발음을 더 자주 들으면 듣기 실력이 향상될 거예요!
                   </div>
                 )}
               </div>
@@ -913,21 +951,17 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                     try {
                       const ids = await getWrongWordIdsForSession(sessionId);
                       if (ids.length > 0) {
-                        const dict = new Map(words.map(w => [w.id, w] as const));
-                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof words;
+                        const dict = new Map(eligible.map(w => [w.id, w] as const));
+                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof eligible;
                       }
-                    } catch (e) {
-                      // ignore and fallback to local wrongQuestions
-                    }
+                    } catch {}
                   }
                   if (retryWords.length === 0) return;
                   setQuestions(retryWords);
                   setWrongQuestions([]);
                   setIndex(0);
-                  setSelectedAnswer(null);
-                  setChecked(null);
+                  setSelected(null);
                   setScore(0);
-                  setShowImage(true);
                   setFinished(false);
                 }}
                 style={{
@@ -989,5 +1023,3 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     </div>
   );
 }
-
-

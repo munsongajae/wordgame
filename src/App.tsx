@@ -6,6 +6,10 @@ import ImageQuiz from './components/ImageQuiz';
 import SpellingQuiz from './components/SpellingQuiz';
 import MeaningQuiz from './components/MeaningQuiz';
 import CombinedQuiz from './components/CombinedQuiz';
+import FallingQuiz from './components/FallingQuiz';
+import ListeningQuiz from './components/ListeningQuiz';
+import SpellingGame from './components/SpellingGame';
+import FillBlankGame from './components/FillBlankGame';
 import Ranking from './components/Ranking';
 import { Word } from './types/word';
 import { GoogleSheetsService } from './services/googleSheetsService';
@@ -13,7 +17,7 @@ import './App.css';
 import { getCurrentUserName, setCurrentUserByName } from './services/supabaseClient';
 
 type AppMode = 'sourceSelection' | 'wordList' | 'pronunciation' | 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz';
-type AppModeExtended = AppMode | 'dashboard' | 'userSelection' | 'combinedQuiz' | 'ranking';
+type AppModeExtended = AppMode | 'dashboard' | 'userSelection' | 'combinedQuiz' | 'ranking' | 'fallingQuiz' | 'listeningQuiz' | 'spellingGame' | 'fillBlankGame';
 
 function App() {
   const [words, setWords] = useState<Word[]>([]);
@@ -349,6 +353,20 @@ function App() {
   if (mode === 'combinedQuiz') {
     return <CombinedQuiz words={words} onBack={handleBackToWordList} />;
   }
+  if (mode === 'fallingQuiz') {
+    return <FallingQuiz words={words} onBack={handleBackToWordList} />;
+  }
+  if (mode === 'listeningQuiz') {
+    return <ListeningQuiz words={words} onBack={handleBackToWordList} />;
+  }
+
+  if (mode === 'spellingGame') {
+    return <SpellingGame words={words} onBack={handleBackToWordList} />;
+  }
+
+  if (mode === 'fillBlankGame') {
+    return <FillBlankGame words={words} onBack={handleBackToWordList} />;
+  }
 
   if (mode === 'dashboard') {
     return <Dashboard onBack={handleBackToWordList} />;
@@ -552,10 +570,38 @@ function App() {
           </button>
           <button 
             className="quiz-button"
+            onClick={() => setMode('listeningQuiz')}
+            disabled={words.length < 4}
+          >
+            🎧 듣기 퀴즈
+          </button>
+          <button 
+            className="quiz-button"
+            onClick={() => setMode('spellingGame')}
+            disabled={words.length < 4}
+          >
+            🧩 철자 조합 게임
+          </button>
+          <button 
+            className="quiz-button"
+            onClick={() => setMode('fillBlankGame')}
+            disabled={words.length < 4}
+          >
+            📝 빈칸 채우기 게임
+          </button>
+          <button 
+            className="quiz-button"
             onClick={() => setMode('combinedQuiz')}
             disabled={words.length < 4}
           >
             🧩 종합 퀴즈
+          </button>
+          <button 
+            className="quiz-button"
+            onClick={() => setMode('fallingQuiz')}
+            disabled={words.length < 4}
+          >
+            🚀 화성 침공 방어 (10초)
           </button>
         </div>
 

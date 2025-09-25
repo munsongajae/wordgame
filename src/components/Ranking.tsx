@@ -226,8 +226,11 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
               <button 
                 onClick={() => {
                   const quizType = quizData.quizName.includes('그림') ? 'imageQuiz' : 
-                                 quizData.quizName.includes('철자') ? 'spellingQuiz' : 
-                                 quizData.quizName.includes('뜻') ? 'meaningQuiz' : 'combinedQuiz';
+                                 quizData.quizName.includes('철자 보고') ? 'spellingQuiz' :
+                                 quizData.quizName.includes('철자 조합') ? 'spellingGame' :
+                                 quizData.quizName.includes('빈칸 채우기') ? 'fillBlankGame' : 
+                                 quizData.quizName.includes('뜻') ? 'meaningQuiz' :
+                                 quizData.quizName.includes('듣기') ? 'listeningQuiz' : 'combinedQuiz';
                   const questionCount = quizData.quizName.includes('10문제') ? 10 : 
                                       quizData.quizName.includes('20문제') ? 20 : 
                                       quizData.quizName.includes('30문제') ? 30 : 'infinite';
@@ -401,6 +404,51 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
           }}
         >
           뜻
+        </button>
+        <button
+          onClick={() => setActiveTab('listeningQuiz')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'listeningQuiz' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'listeningQuiz' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          듣기
+        </button>
+        <button
+          onClick={() => setActiveTab('spellingGame')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'spellingGame' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'spellingGame' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          조합
+        </button>
+        <button
+          onClick={() => setActiveTab('fillBlankGame')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'fillBlankGame' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'fillBlankGame' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          빈칸
         </button>
         <button
           onClick={() => setActiveTab('combinedQuiz')}

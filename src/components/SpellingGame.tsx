@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Word } from '../types/word';
-import { logAttempt, saveSession, updateProgress, Mode } from '../services/trackingService';
-import { createRecordFromQuizResult, isNewRecord, addRecord, loadRankings } from '../services/rankingService';
+import { logAttempt, saveSession, updateProgress } from '../services/trackingService';
+import { createRecordFromQuizResult, isNewRecord, addRecord } from '../services/rankingService';
 
 interface SpellingGameProps {
   words: Word[];
   onBack: () => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const NUM_OPTIONS = 4;
 const COUNTDOWN_BEEP_DURATION = 0.2;
 const AUTO_NEXT_DELAY_MS = 1500;
@@ -285,6 +286,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
     }, 1000);
     
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, finished, current, isCorrect]);
 
   // 글자 선택
@@ -311,6 +313,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
     const newUserAnswer = userAnswer.filter((_, index) => index !== answerIndex);
     
     // 선택된 인덱스도 업데이트 (제거된 글자의 원래 인덱스를 찾아서 제거)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const removedLetterIndex = selectedIndices[answerIndex];
     const newSelectedIndices = selectedIndices.filter((_, index) => index !== answerIndex);
     

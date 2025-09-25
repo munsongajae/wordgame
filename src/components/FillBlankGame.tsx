@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Word } from '../types/word';
-import { logAttempt, saveSession, updateProgress, Mode } from '../services/trackingService';
-import { createRecordFromQuizResult, isNewRecord, addRecord, loadRankings } from '../services/rankingService';
+import { logAttempt, saveSession, updateProgress } from '../services/trackingService';
+import { createRecordFromQuizResult, isNewRecord, addRecord } from '../services/rankingService';
 
 interface FillBlankGameProps {
   words: Word[];
@@ -358,6 +358,7 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
     }, 1000);
     
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, finished, current, isCorrect]);
 
   // 선택지 클릭

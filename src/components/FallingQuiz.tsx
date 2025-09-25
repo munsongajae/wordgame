@@ -10,9 +10,11 @@ type FallingQuizProps = {
 const ROUND_TIME_SEC = 10;
 const OPTIONS_PER_QUESTION = 4;
 const AUTO_NEXT_DELAY_MS = 800;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FALL_DURATION_MS = ROUND_TIME_SEC * 1000;
 const OPTIONS_HEIGHT = 120; // 보기 영역 높이
 const GAME_AREA_HEIGHT = 500; // 게임 영역 높이 (vh 대신 고정값 사용)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const INVADER_TRAVEL_TIME = 10; // 침공자가 화성에서 지구까지 도착하는 시간 (초)
 const INVADER_SPEED = (GAME_AREA_HEIGHT + 150) / 10 / 10 / 5 * 0.7; // 침공자 속도를 30% 더 느리게 (약 700초에 도착)
 
@@ -90,7 +92,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       });
     }
     return qs;
-  }, [eligible, questionCount, gameKey]); // gameKey 추가
+  }, [eligible, questionCount]);
 
   const current = questions[index];
 
@@ -157,6 +159,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   }, []);
 
   // 신기록 달성 사운드 (사용자 제공 파일 사용)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const playRecordSound = useCallback(() => {
     try {
       console.log('화성 침공 신기록 사운드 재생 시도 - record.mp3 파일 사용');
@@ -347,7 +350,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       // 화면을 벗어난 침공자들 제거
       return updated.filter(invader => invader.y < gameAreaHeight + 100);
     });
-  }, []);
+  }, [playWrongSound]);
 
   // 게임 루프 (침공자 생성, 업데이트, 타이머)
   useEffect(() => {
@@ -491,6 +494,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   };
 
   // 낙하 아이템 수평 위치 생성
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const xPositions = useMemo(() => {
     return current ? current.options.map(() => Math.random() * 80 + 10) : [];
   }, [current]);

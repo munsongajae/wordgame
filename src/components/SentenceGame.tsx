@@ -2,18 +2,10 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { SentenceProblem, Word } from '../types/word';
 import { SentenceProblemService } from '../services/sentenceProblemService';
 import { logAttempt, saveSession, Mode } from '../services/trackingService';
-import { getAllRankings } from '../services/rankingService';
 import SupabaseSetupGuide from './SupabaseSetupGuide';
 import SupabaseDiagnostic from './SupabaseDiagnostic';
 
 type DifficultyLevel = 'easy' | 'medium' | 'hard';
-
-// 난이도별 빈칸 개수
-const DIFFICULTY_BLANK_COUNTS = {
-  easy: 2,    // 하: 빈칸 2개
-  medium: 3,  // 중: 빈칸 3개
-  hard: -1    // 상: 제한 없음 (모든 단어를 빈칸으로)
-} as const;
 
 interface SentenceGameProps {
   words: Word[];

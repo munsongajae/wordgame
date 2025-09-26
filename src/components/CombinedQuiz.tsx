@@ -178,6 +178,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
   const autoNextTimeoutRef = useRef<number | null>(null);
   const selectedRef = useRef<number | null>(null);
   const [quizTypes, setQuizTypes] = useState<QuizType[]>([]);
+  const [checked, setChecked] = useState<boolean | null>(null);
 
   const wordsWithImage = useMemo(() => words.filter(w => !!w.imageUrl), [words]);
   const hasAny = words.length >= NUM_OPTIONS;
@@ -275,13 +276,8 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
       setQuizStartTime(Date.now());
     }
     
-    // 듣기 퀴즈일 때 자동으로 발음 재생
+    // 자동 발음 재생 제거 (수동 '듣기' 버튼으로 재생)
     let playAudioTimeout: number | null = null;
-    if (currentType === 'listening') {
-      playAudioTimeout = window.setTimeout(() => {
-        speakWord(current.english);
-      }, 500); // 0.5초 후에 자동 재생
-    }
     
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -417,29 +413,32 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
   const handleSelect = (optIndex: number) => {
     if (selected !== null || !current || timeLeft === 0 || !options[optIndex]) return;
     setSelected(optIndex);
-    const isCorrect = options[optIndex].id === current.id;
+    setChecked(null);
+    // 선택만 하고 즉시 판정/이동하지 않음. 확인 버튼에서 처리
+  };
+
+  const handleCheckAnswer = () => {
+    if (selected === null || !current || timeLeft === 0) return;
+    const isCorrect = options[selected]?.id === current.id;
+    setChecked(isCorrect);
     if (isCorrect) {
       setScore(s => s + 1);
       playCorrectSound();
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     } else {
       playWrongSound();
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     }
     logAttempt({ sessionId, mode: 'combinedQuiz', wordId: current.id, correct: isCorrect });
     updateProgress({ wordId: current.id, correct: isCorrect });
+
+    if (autoNextTimeoutRef.current !== null) {
+      clearTimeout(autoNextTimeoutRef.current);
+    }
+    autoNextTimeoutRef.current = window.setTimeout(() => {
+      autoNextTimeoutRef.current = null;
+      setChecked(null);
+      setSelected(null);
+      next();
+    }, AUTO_NEXT_DELAY_MS);
   };
 
   const next = () => {
@@ -657,7 +656,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
                 fontWeight: 'bold'
               }}
             >
-              🔄 다시 듣기
+              🎧 듣기
             </button>
           </div>
 
@@ -830,8 +829,30 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
         <>
           {renderQuestion()}
           {selected !== null && (
-            <div style={{ marginTop: 12, fontWeight: 700, color: options[selected]?.id === current.id ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
-              {options[selected]?.id === current.id ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
+            <div style={{ marginTop: 12, textAlign: 'center' }}>
+              <button
+                onClick={handleCheckAnswer}
+                disabled={checked !== null}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '18px',
+                  backgroundColor: '#FF9800',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: checked !== null ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(255,152,0,0.3)',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✅ 정답 확인
+              </button>
+            </div>
+          )}
+
+          {checked !== null && (
+            <div style={{ marginTop: 12, fontWeight: 700, color: checked ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
+              {checked ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
             </div>
           )}
         </>

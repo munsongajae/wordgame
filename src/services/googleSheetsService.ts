@@ -1,9 +1,168 @@
-import { Word } from '../types/word';
+import { Word, SentenceProblem } from '../types/word';
 
 // 구글 시트에서 단어 데이터를 가져오는 서비스
 export class GoogleSheetsService {
   private static readonly SHEET_ID = process.env.REACT_APP_GOOGLE_SHEET_ID || '';
   private static readonly API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || '';
+
+  static async fetchSentenceProblems(): Promise<SentenceProblem[]> {
+    console.log('🔍 구글 시트 시트2번 문장 문제 데이터 로드 시작...');
+    console.log('📊 설정 정보:', {
+      sheetId: this.SHEET_ID,
+      hasApiKey: !!this.API_KEY && this.API_KEY !== 'your_google_api_key_here',
+      apiKeyPrefix: this.API_KEY ? this.API_KEY.substring(0, 10) + '...' : '없음'
+    });
+
+    if (!this.SHEET_ID) {
+      console.warn('❌ 구글 시트 ID가 설정되지 않았습니다.');
+      return [];
+    }
+
+    // 먼저 시트 정보를 가져와서 정확한 gid 찾기
+    if (this.API_KEY && this.API_KEY !== 'your_google_api_key_here') {
+      try {
+        console.log('🔍 시트 정보 조회 중...');
+        const sheetsInfoUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.SHEET_ID}?key=${this.API_KEY}`;
+        const sheetsResponse = await fetch(sheetsInfoUrl);
+        
+        if (sheetsResponse.ok) {
+          const sheetsData = await sheetsResponse.json();
+          console.log('📋 시트 정보:', sheetsData.sheets?.map((s: any) => ({
+            title: s.properties?.title,
+            sheetId: s.properties?.sheetId,
+            index: s.properties?.index
+          })));
+        }
+      } catch (error) {
+        console.log('⚠️ 시트 정보 조회 실패:', error);
+      }
+    }
+
+    // API 키가 있으면 Google Sheets API 사용
+    if (this.API_KEY && this.API_KEY !== 'your_google_api_key_here') {
+      const sheetNames = ['Sheet2', '시트2', 'sheet2'];
+      
+      for (const sheetName of sheetNames) {
+        try {
+          console.log(`🚀 Google Sheets API로 ${sheetName} 데이터 로드 시도...`);
+          const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.SHEET_ID}/values/${sheetName}?key=${this.API_KEY}`;
+          console.log('📡 API URL:', url);
+          
+          const response = await fetch(url);
+          console.log('📨 API 응답 상태:', response.status, response.statusText);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('📋 API 응답 데이터:', data);
+          
+          if (data.values && data.values.length > 0) {
+            const problems = this.parseSentenceData(data.values);
+            console.log(`✅ API로 ${sheetName}에서 로드된 문장 문제 수:`, problems.length);
+            return problems;
+          }
+        } catch (error) {
+          console.error(`❌ ${sheetName} API 데이터 로드 실패:`, error);
+        }
+      }
+      
+      console.log('🔄 모든 시트명 시도 실패, 공개 CSV 링크로 시도합니다.');
+    }
+
+    // API 키가 없거나 실패하면 CSV Export 시도
+    const methods = [
+      // 시트2번은 보통 gid=1이지만, 경우에 따라 다를 수 있음
+      {
+        name: 'CSV Export (Sheet2, gid=1, public sharing)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=1&usp=sharing`
+      },
+      {
+        name: 'CSV Export (Sheet2, gid=1)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=1`
+      },
+      {
+        name: 'CSV Export (Sheet2, gid=2, public sharing)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=2&usp=sharing`
+      },
+      {
+        name: 'CSV Export (Sheet2, gid=2)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=2`
+      },
+      {
+        name: 'CSV Export (Sheet2, gid=0, public sharing)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=0&usp=sharing`
+      },
+      {
+        name: 'CSV Export (Sheet2, gid=0)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=0`
+      },
+      // 시트명으로 직접 접근 시도
+      {
+        name: 'CSV Export (Sheet2 by name, public sharing)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&sheet=Sheet2&usp=sharing`
+      },
+      {
+        name: 'CSV Export (Sheet2 by name)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&sheet=Sheet2`
+      },
+      {
+        name: 'CSV Export (시트2 by name, public sharing)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&sheet=시트2&usp=sharing`
+      },
+      {
+        name: 'CSV Export (시트2 by name)',
+        url: `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&sheet=시트2`
+      }
+    ];
+
+    for (const method of methods) {
+      try {
+        console.log(`🚀 ${method.name}로 데이터 로드 시도...`);
+        console.log('📡 URL:', method.url);
+        
+        const response = await fetch(method.url, {
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        console.log('📨 응답 상태:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          throw new Error(`${method.name} failed! status: ${response.status}`);
+        }
+        
+        const text = await response.text();
+        console.log('📄 응답 데이터 (처음 1000자):', text.substring(0, 1000));
+        
+        // 빈 응답 체크
+        if (!text.trim()) {
+          console.log('⚠️ 빈 응답 데이터');
+          continue;
+        }
+        
+        // 헤더 확인
+        const firstLine = text.split('\n')[0];
+        console.log('📋 첫 번째 라인 (헤더):', firstLine);
+        
+        const problems = this.parseCsvSentenceData(text);
+        console.log(`✅ ${method.name}로 로드된 문장 문제 수:`, problems.length);
+        
+        if (problems.length > 0) {
+          console.log('📝 첫 번째 문제:', problems[0]);
+          return problems;
+        } else {
+          console.log('⚠️ 파싱된 문제가 없습니다. 원본 데이터를 확인해보세요.');
+          console.log('📄 전체 응답 데이터:', text);
+        }
+      } catch (error) {
+        console.error(`❌ ${method.name} 실패:`, error);
+      }
+    }
+
+    console.error('❌ 모든 구글 시트 접근 방법 실패');
+    return [];
+  }
 
   static async fetchWords(): Promise<Word[]> {
     console.log('🔍 구글 시트 데이터 로드 시작...');
@@ -126,6 +285,111 @@ export class GoogleSheetsService {
     console.log('   4. 서버를 재시작하세요 (npm start)');
     console.log('🔄 빈 배열을 반환합니다. (App.tsx에서 샘플 데이터 처리)');
     return [];
+  }
+
+  private static parseSentenceData(values: string[][]): SentenceProblem[] {
+    if (!values || values.length < 2) {
+      console.warn('⚠️ 구글 시트 문장 데이터가 비어있습니다.');
+      return [];
+    }
+
+    const [, ...rows] = values; // headers 변수 제거
+    const problems: SentenceProblem[] = [];
+
+    rows.forEach((row, index) => {
+      if (row.length >= 6) {
+        try {
+          const targetWordsJson = row[4]?.trim() || '[]';
+          const targetWords = JSON.parse(targetWordsJson);
+          
+          const levelValue = row[6]?.trim().toUpperCase() || 'BEGINNER';
+          const validLevel: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' = 
+            ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'].includes(levelValue) 
+              ? levelValue as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+              : 'BEGINNER';
+
+          problems.push({
+            id: row[0]?.trim() || `sentence_${index + 1}`,
+            koreanSentence: row[1]?.trim() || '',
+            englishSentence: row[2]?.trim() || '',
+            source: row[3]?.trim() || '',
+            targetWords: Array.isArray(targetWords) ? targetWords : [],
+            wordCount: parseInt(row[5]?.trim()) || 0,
+            level: validLevel
+          });
+        } catch (error) {
+          console.warn(`⚠️ 문장 문제 ${index + 1} 파싱 실패:`, error);
+        }
+      }
+    });
+
+    return problems.filter(problem => 
+      problem.koreanSentence && 
+      problem.englishSentence && 
+      problem.targetWords.length > 0
+    );
+  }
+
+  private static parseCsvSentenceData(csvText: string): SentenceProblem[] {
+    console.log('🔧 CSV 문장 데이터 파싱 시작...');
+    const lines = csvText.split('\n').filter(line => line.trim());
+    console.log('📄 총 라인 수:', lines.length);
+    console.log('📋 첫 번째 라인 (헤더):', lines[0]);
+    
+    if (lines.length < 2) {
+      console.warn('⚠️ 데이터 라인이 부족합니다.');
+      return [];
+    }
+
+    const problems: SentenceProblem[] = [];
+    const [, ...rows] = lines; // 헤더 제거
+    console.log('📊 데이터 라인 수:', rows.length);
+
+    rows.forEach((line, index) => {
+      console.log(`🔍 라인 ${index + 1} 파싱:`, line);
+      
+      // CSV 파싱 (쉼표로 분리, 따옴표 처리)
+      const columns = this.parseCsvLine(line);
+      console.log(`📝 파싱된 컬럼들:`, columns);
+      
+      if (columns.length >= 6 && columns[1].trim() && columns[2].trim()) {
+        try {
+          const targetWordsJson = columns[4]?.trim() || '[]';
+          const targetWords = JSON.parse(targetWordsJson);
+          
+          const levelValue = columns[6]?.trim().toUpperCase() || 'BEGINNER';
+          const validLevel: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' = 
+            ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'].includes(levelValue) 
+              ? levelValue as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+              : 'BEGINNER';
+
+          const problem: SentenceProblem = {
+            id: columns[0]?.trim() || `sentence_${index + 1}`,
+            koreanSentence: columns[1]?.trim() || '',
+            englishSentence: columns[2]?.trim() || '',
+            source: columns[3]?.trim() || '',
+            targetWords: Array.isArray(targetWords) ? targetWords : [],
+            wordCount: parseInt(columns[5]?.trim()) || 0,
+            level: validLevel
+          };
+          
+          problems.push(problem);
+          console.log(`✅ 문장 문제 추가됨:`, problem);
+        } catch (error) {
+          console.warn(`⚠️ 라인 ${index + 1} JSON 파싱 실패:`, error);
+        }
+      } else {
+        console.log(`⚠️ 라인 ${index + 1} 건너뜀 - 유효하지 않은 데이터`);
+      }
+    });
+
+    const validProblems = problems.filter(problem => 
+      problem.koreanSentence && 
+      problem.englishSentence && 
+      problem.targetWords.length > 0
+    );
+    console.log('🎯 최종 유효한 문장 문제 수:', validProblems.length);
+    return validProblems;
   }
 
   private static parseSheetData(values: string[][]): Word[] {

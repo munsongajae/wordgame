@@ -183,6 +183,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const scoreRef = useRef(0);
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
   const [finished, setFinished] = useState(false);
@@ -404,34 +405,32 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
   }, [current, words]);
 
   const handleSelect = (optIndex: number) => {
-    if (selected !== null || !current || timeLeft === 0 || !options[optIndex]) return;
+    if (selected !== null || !current || timeLeft === 0 || !options[optIndex] || isCorrect !== null) return;
     setSelected(optIndex);
-    if (options[optIndex] === current.english) {
+  };
+
+  const handleCheckAnswer = () => {
+    if (selected === null || !current || !options[selected] || isCorrect !== null) return;
+    
+    const correct = options[selected] === current.english;
+    setIsCorrect(correct);
+    
+    if (correct) {
       setScore(s => s + 1);
       playCorrectSound(); // 정답 효과음 재생
-      // 정답이면 일정 시간 후 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     } else {
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
-      // 오답이어도 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     }
+    
     // log attempt & SRS
-    logAttempt({ sessionId, mode: 'meaningQuiz', wordId: current.id, correct: options[optIndex] === current.english });
-    updateProgress({ wordId: current.id, correct: options[optIndex] === current.english });
+    logAttempt({ sessionId, mode: 'meaningQuiz', wordId: current.id, correct });
+    updateProgress({ wordId: current.id, correct });
+    
+    // 2초 후 다음 문제로 자동 이동
+    setTimeout(() => {
+      next();
+    }, 2000);
   };
 
   const next = () => {
@@ -450,6 +449,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
         setQuestions(pickRandom(words, count));
         setIndex(0);
         setSelected(null);
+        setIsCorrect(null);
         setTimeLeft(10);
         setQuizStartTime(Date.now()); // 무제한 모드에서 새로운 세션 시작 시간 기록
         return;
@@ -484,6 +484,7 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
     }
     setIndex(i => i + 1);
     setSelected(null);
+    setIsCorrect(null);
   };
 
   return (
@@ -614,14 +615,14 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
 
           <div className="options" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr', justifyItems: 'center', maxWidth: 560, margin: '0 auto' }}>
             {options.map((opt, i) => {
-              const isCorrect = selected !== null && opt === current.english;
-              const isWrong = selected === i && opt !== current.english;
+              const isThisCorrect = selected !== null && opt === current.english;
+              const isThisWrong = selected === i && isCorrect !== null && !isCorrect;
               return (
                 <div key={`${current.id}_${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <button
                     onClick={() => handleSelect(i)}
-                    className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
-                    disabled={selected !== null || timeLeft === 0}
+                    className={`option-button ${isThisCorrect ? 'correct' : ''} ${isThisWrong ? 'incorrect' : ''}`}
+                    disabled={selected !== null || timeLeft === 0 || isCorrect !== null}
                     style={{
                       fontSize: 28,
                       lineHeight: '1.2',
@@ -636,16 +637,14 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
                       border: '2px solid #e0e0e0',
                       backgroundColor: selected === null
                         ? '#fff'
-                        : isCorrect
-                          ? '#4CAF50'
-                          : isWrong
-                            ? '#F44336'
-                            : '#f5f5f5',
+                        : isCorrect !== null
+                          ? (isThisCorrect ? '#4CAF50' : (isThisWrong ? '#F44336' : '#f5f5f5'))
+                          : (selected === i ? '#2196F3' : '#f5f5f5'),
                       color: selected === null
                         ? '#333'
-                        : isCorrect || isWrong
-                          ? '#fff'
-                          : '#666',
+                        : isCorrect !== null
+                          ? (isThisCorrect || isThisWrong ? '#fff' : '#666')
+                          : (selected === i ? '#fff' : '#666'),
                       boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
                       transition: 'all 0.2s ease'
                     }}
@@ -675,9 +674,61 @@ export default function MeaningQuiz({ words, onBack }: MeaningQuizProps) {
           </div>
 
           
-          {selected !== null && (
-            <div style={{ marginTop: 12, fontWeight: 700, color: selected !== null && options[selected] === current.english ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
-              {selected !== null && options[selected] === current.english ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
+          {/* 확인 버튼 */}
+          {selected !== null && isCorrect === null && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              marginTop: '20px' 
+            }}>
+              <button
+                onClick={handleCheckAnswer}
+                disabled={selected === null}
+                style={{
+                  padding: '15px 30px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: selected === null ? 'not-allowed' : 'pointer',
+                  opacity: selected === null ? 0.6 : 1,
+                  minHeight: '60px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+                onMouseEnter={(e) => {
+                  if (selected !== null) {
+                    e.currentTarget.style.backgroundColor = '#F57C00';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selected !== null) {
+                    e.currentTarget.style.backgroundColor = '#FF9800';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }
+                }}
+              >
+                ✅ 정답 확인
+              </button>
+            </div>
+          )}
+
+          {/* 정답/오답 표시 */}
+          {isCorrect !== null && (
+            <div style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              margin: '20px 0',
+              padding: '15px',
+              borderRadius: '10px',
+              backgroundColor: isCorrect ? '#e8f5e8' : '#fde8e8',
+              color: isCorrect ? '#2e7d32' : '#c62828',
+              textAlign: 'center'
+            }}>
+              {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
             </div>
           )}
         </>

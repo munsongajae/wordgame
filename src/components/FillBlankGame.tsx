@@ -8,6 +8,8 @@ interface FillBlankGameProps {
   onBack: () => void;
 }
 
+type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
 interface BlankInfo {
   position: number;
   correctLetter: string;
@@ -32,21 +34,29 @@ function pickRandom<T>(array: T[], count: number): T[] {
   return shuffled.slice(0, count);
 }
 
-// 빈칸 생성 함수
-function createBlanks(word: string): BlankInfo[] {
+// 빈칸 생성 함수 (난이도별)
+function createBlanks(word: string, difficulty: DifficultyLevel): BlankInfo[] {
   const wordLength = word.length;
   let blankCount: number;
+  let useSequential: boolean;
   
-  // 단어 길이에 따른 빈칸 개수 결정
-  if (wordLength <= 3) {
-    blankCount = 1;
-  } else if (wordLength <= 5) {
-    blankCount = Math.min(2, Math.floor(wordLength * 0.4));
-  } else {
-    blankCount = Math.min(3, Math.floor(wordLength * 0.5));
+  // 난이도별 빈칸 개수 및 순서 결정
+  switch (difficulty) {
+    case 'easy':
+      blankCount = 1; // 하: 빈칸 1개만
+      useSequential = true; // 순서대로
+      break;
+    case 'medium':
+      blankCount = Math.min(2, Math.max(1, Math.floor(wordLength * 0.3))); // 중: 최대 2개
+      useSequential = true; // 순서대로
+      break;
+    case 'hard':
+      blankCount = Math.min(Math.max(2, Math.floor(wordLength * 0.4)), Math.floor(wordLength * 0.6)); // 상: 2개 이상
+      useSequential = false; // 랜덤
+      break;
   }
   
-  // 랜덤 위치 선택 (첫 글자와 마지막 글자는 제외)
+  // 가능한 위치들 (첫 글자와 마지막 글자는 제외)
   const possiblePositions = [];
   for (let i = 1; i < wordLength - 1; i++) {
     possiblePositions.push(i);
@@ -61,7 +71,15 @@ function createBlanks(word: string): BlankInfo[] {
     }
   }
   
-  const selectedPositions = pickRandom(possiblePositions, blankCount);
+  let selectedPositions: number[];
+  
+  if (useSequential) {
+    // 순서대로: 앞에서부터 선택
+    selectedPositions = possiblePositions.slice(0, blankCount);
+  } else {
+    // 랜덤: 기존 로직 사용
+    selectedPositions = pickRandom(possiblePositions, blankCount);
+  }
   
   return selectedPositions.map(position => ({
     position,
@@ -92,6 +110,7 @@ function generateWrongOptions(correctLetters: string[], allWords: Word[]): strin
 
 const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
   const [questionCount, setQuestionCount] = useState<number | null>(null);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null);
   const [questions, setQuestions] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
@@ -299,8 +318,8 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
 
   // 문제 초기화
   useEffect(() => {
-    if (current && questions.length > 0) {
-      const newBlanks = createBlanks(current.english);
+    if (current && questions.length > 0 && difficulty) {
+      const newBlanks = createBlanks(current.english, difficulty);
       setBlanks(newBlanks);
       setCurrentBlankIndex(0);
       setIsCorrect(null);
@@ -319,7 +338,7 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
       const baseTime = Math.max(15, current.english.length * 2 + newBlanks.length * 5);
       setTimeLeft(baseTime);
     }
-  }, [current, questions.length, words]);
+  }, [current, questions.length, words, difficulty]);
 
   // 타이머
   useEffect(() => {
@@ -370,10 +389,11 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
     newBlanks[currentBlankIndex] = { ...currentBlank, userAnswer: letter };
     setBlanks(newBlanks);
     
-    // 다음 빈칸으로 이동 또는 정답 확인
+    // 다음 빈칸으로 이동 또는 확인 버튼 활성화
     if (currentBlankIndex + 1 >= blanks.length) {
-      // 모든 빈칸을 채웠으면 정답 확인
-      checkAnswer(newBlanks);
+      // 모든 빈칸을 채웠으면 확인 버튼 활성화
+      setCurrentBlankIndex(blanks.length); // 확인 버튼이 나타나도록 설정
+      console.log('🎯 모든 빈칸 채우기 완료! 확인 버튼 활성화');
     } else {
       const nextBlankIndex = currentBlankIndex + 1;
       setCurrentBlankIndex(nextBlankIndex);
@@ -390,9 +410,11 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
     }
   };
 
-  // 정답 확인
-  const checkAnswer = (filledBlanks: BlankInfo[]) => {
-    const allCorrect = filledBlanks.every(blank => 
+  // 정답 확인 버튼 핸들러
+  const handleCheckAnswer = () => {
+    if (isCorrect !== null || !current) return;
+    
+    const allCorrect = blanks.every(blank => 
       blank.userAnswer === blank.correctLetter
     );
     
@@ -401,21 +423,18 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
     if (allCorrect) {
       playCorrectSound();
       setScore(prev => prev + 1);
-      logAttempt({ sessionId, mode: 'fillBlankGame', wordId: current!.id, correct: true });
-      updateProgress({ wordId: current!.id, correct: true });
+      logAttempt({ sessionId, mode: 'fillBlankGame', wordId: current.id, correct: true });
+      updateProgress({ wordId: current.id, correct: true });
     } else {
       playWrongSound();
-      logAttempt({ sessionId, mode: 'fillBlankGame', wordId: current!.id, correct: false });
-      updateProgress({ wordId: current!.id, correct: false });
+      logAttempt({ sessionId, mode: 'fillBlankGame', wordId: current.id, correct: false });
+      updateProgress({ wordId: current.id, correct: false });
     }
     
-    if (autoNextTimeoutRef.current !== null) {
-      clearTimeout(autoNextTimeoutRef.current);
-    }
-    autoNextTimeoutRef.current = window.setTimeout(() => {
-      autoNextTimeoutRef.current = null;
+    // 2초 후 다음 문제로 자동 이동
+    setTimeout(() => {
       next();
-    }, AUTO_NEXT_DELAY_MS);
+    }, 2000);
   };
 
   // 다음 문제
@@ -539,12 +558,155 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
     );
   };
 
+  // 난이도 선택 화면
+  if (difficulty === null) {
+    return (
+      <div className="quiz-container">
+        <div className="quiz-header" style={{ textAlign: 'center' }}>
+          <h2>📝 빈칸 채우기 게임</h2>
+          <p>빈칸에 들어갈 올바른 글자를 선택하세요!</p>
+        </div>
+        
+        <div style={{ textAlign: 'center', marginTop: '40px' }}>
+          <h3 style={{ marginBottom: '30px', color: '#333' }}>난이도를 선택하세요</h3>
+          
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '20px',
+            maxWidth: '500px',
+            margin: '0 auto'
+          }}>
+            {/* 하급 난이도 */}
+            <button
+              onClick={() => setDifficulty('easy')}
+              style={{
+                padding: '25px',
+                fontSize: '20px',
+                fontWeight: 'bold',
+                border: '3px solid #4CAF50',
+                borderRadius: '15px',
+                background: 'linear-gradient(135deg, #E8F5E8, #C8E6C9)',
+                color: '#2E7D32',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                minHeight: '100px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(76,175,80,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '24px' }}>🟢 하</div>
+              <div style={{ fontSize: '16px', fontWeight: 'normal' }}>
+                빈칸 1개 채우기
+              </div>
+            </button>
+
+            {/* 중급 난이도 */}
+            <button
+              onClick={() => setDifficulty('medium')}
+              style={{
+                padding: '25px',
+                fontSize: '20px',
+                fontWeight: 'bold',
+                border: '3px solid #FF9800',
+                borderRadius: '15px',
+                background: 'linear-gradient(135deg, #FFF3E0, #FFE0B2)',
+                color: '#F57C00',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                minHeight: '100px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(255,152,0,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '24px' }}>🟡 중</div>
+              <div style={{ fontSize: '16px', fontWeight: 'normal' }}>
+                빈칸 여러개 채우기 (최대 2개, 순서대로)
+              </div>
+            </button>
+
+            {/* 상급 난이도 */}
+            <button
+              onClick={() => setDifficulty('hard')}
+              style={{
+                padding: '25px',
+                fontSize: '20px',
+                fontWeight: 'bold',
+                border: '3px solid #F44336',
+                borderRadius: '15px',
+                background: 'linear-gradient(135deg, #FFEBEE, #FFCDD2)',
+                color: '#C62828',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                minHeight: '100px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(244,67,54,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '24px' }}>🔴 상</div>
+              <div style={{ fontSize: '16px', fontWeight: 'normal' }}>
+                빈칸 여러개 채우기 (2개 이상, 랜덤 순서)
+              </div>
+            </button>
+          </div>
+        </div>
+        
+        <div style={{ textAlign: 'center', marginTop: '40px' }}>
+          <button onClick={onBack} style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer'
+          }}>
+            뒤로 가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 문제 수 선택 화면
   if (questionCount === null && questions.length === 0) {
     return (
       <div className="quiz-container">
         <div className="quiz-header" style={{ textAlign: 'center' }}>
-          <h2>📝 빈칸 채우기 게임</h2>
+          <h2>📝 빈칸 채우기 게임 - {difficulty === 'easy' ? '🟢 하' : difficulty === 'medium' ? '🟡 중' : '🔴 상'}</h2>
           <p>빈칸에 들어갈 올바른 글자를 선택하세요!</p>
         </div>
         
@@ -753,6 +915,7 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
           <button
             onClick={() => {
               setQuestionCount(null);
+              setDifficulty(null);
               setQuestions([]);
               setIndex(0);
               setScore(0);
@@ -835,6 +998,12 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
                 ({questionCount}문제)
               </span>
             )}
+          </div>
+          <div style={{ 
+            color: difficulty === 'easy' ? '#4CAF50' : difficulty === 'medium' ? '#FF9800' : '#F44336',
+            fontSize: '16px'
+          }}>
+            {difficulty === 'easy' ? '🟢 하' : difficulty === 'medium' ? '🟡 중' : '🔴 상'}
           </div>
           <div>
             점수: {score}
@@ -944,6 +1113,48 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
               ))}
             </div>
           </div>
+
+          {/* 확인 버튼 */}
+          {currentBlankIndex >= blanks.length && isCorrect === null && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              marginTop: '20px' 
+            }}>
+              <button
+                onClick={handleCheckAnswer}
+                disabled={currentBlankIndex < blanks.length}
+                style={{
+                  padding: '15px 30px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: currentBlankIndex < blanks.length ? 'not-allowed' : 'pointer',
+                  opacity: currentBlankIndex < blanks.length ? 0.6 : 1,
+                  minHeight: '60px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+                onMouseEnter={(e) => {
+                  if (currentBlankIndex >= blanks.length) {
+                    e.currentTarget.style.backgroundColor = '#F57C00';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentBlankIndex >= blanks.length) {
+                    e.currentTarget.style.backgroundColor = '#FF9800';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }
+                }}
+              >
+                ✅ 정답 확인
+              </button>
+            </div>
+          )}
 
           {/* 결과 표시 */}
           {isCorrect !== null && (

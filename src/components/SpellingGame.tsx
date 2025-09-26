@@ -299,9 +299,9 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
     setSelectedIndices(newSelectedIndices);
     setUserAnswer(newUserAnswer);
     
-    // 모든 글자를 선택했으면 정답 확인
+    // 모든 글자를 선택했으면 확인 버튼 활성화
     if (newUserAnswer.length === current!.english.length) {
-      checkAnswer(newUserAnswer.join(''));
+      console.log('🎯 모든 글자 선택 완료! 확인 버튼 활성화');
     }
   };
 
@@ -322,29 +322,29 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
   };
 
 
-  // 정답 확인
-  const checkAnswer = (answer: string) => {
-    const correct = answer.toLowerCase() === current!.english.toLowerCase();
+  // 정답 확인 버튼 핸들러
+  const handleCheckAnswer = () => {
+    if (isCorrect !== null || !current) return;
+    
+    const answer = userAnswer.join('');
+    const correct = answer.toLowerCase() === current.english.toLowerCase();
     setIsCorrect(correct);
     
     if (correct) {
       playCorrectSound();
       setScore(prev => prev + 1);
-      logAttempt({ sessionId, mode: 'spellingGame', wordId: current!.id, correct: true });
-      updateProgress({ wordId: current!.id, correct: true });
+      logAttempt({ sessionId, mode: 'spellingGame', wordId: current.id, correct: true });
+      updateProgress({ wordId: current.id, correct: true });
     } else {
       playWrongSound();
-      logAttempt({ sessionId, mode: 'spellingGame', wordId: current!.id, correct: false });
-      updateProgress({ wordId: current!.id, correct: false });
+      logAttempt({ sessionId, mode: 'spellingGame', wordId: current.id, correct: false });
+      updateProgress({ wordId: current.id, correct: false });
     }
     
-    if (autoNextTimeoutRef.current !== null) {
-      clearTimeout(autoNextTimeoutRef.current);
-    }
-    autoNextTimeoutRef.current = window.setTimeout(() => {
-      autoNextTimeoutRef.current = null;
+    // 2초 후 다음 문제로 자동 이동
+    setTimeout(() => {
       next();
-    }, AUTO_NEXT_DELAY_MS);
+    }, 2000);
   };
 
   // 다음 문제
@@ -787,6 +787,48 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
               ))}
             </div>
           </div>
+
+          {/* 확인 버튼 */}
+          {userAnswer.length === current.english.length && isCorrect === null && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              marginBottom: '20px' 
+            }}>
+              <button
+                onClick={handleCheckAnswer}
+                disabled={userAnswer.length !== current.english.length}
+                style={{
+                  padding: '15px 30px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: userAnswer.length !== current.english.length ? 'not-allowed' : 'pointer',
+                  opacity: userAnswer.length !== current.english.length ? 0.6 : 1,
+                  minHeight: '60px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+                onMouseEnter={(e) => {
+                  if (userAnswer.length === current.english.length) {
+                    e.currentTarget.style.backgroundColor = '#F57C00';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (userAnswer.length === current.english.length) {
+                    e.currentTarget.style.backgroundColor = '#FF9800';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }
+                }}
+              >
+                ✅ 정답 확인
+              </button>
+            </div>
+          )}
 
           {/* 섞인 글자들 */}
           <div style={{ marginBottom: '20px' }}>

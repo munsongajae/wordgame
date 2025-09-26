@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Word } from '../types/word';
+import { SentenceProblem, Word } from '../types/word';
+import { SentenceProblemService } from '../services/sentenceProblemService';
 import { logAttempt, saveSession, Mode } from '../services/trackingService';
-import { addRecord, isNewRecord } from '../services/rankingService';
-import { getCurrentUserName } from '../services/supabaseClient';
-
-interface SentenceTemplate {
-  id: string;
-  korean: string;
-  template: string; // 관사가 포함된 템플릿 (예: "I ___ a ___")
-  blanks: string[]; // 빈칸에 들어갈 단어들 (예: ["eat", "cake"])
-  difficulty: 'easy' | 'medium' | 'hard';
-}
+import { getAllRankings } from '../services/rankingService';
+import SupabaseSetupGuide from './SupabaseSetupGuide';
+import SupabaseDiagnostic from './SupabaseDiagnostic';
 
 interface SentenceGameProps {
   words: Word[];
@@ -18,306 +12,9 @@ interface SentenceGameProps {
 }
 
 const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
-  // 구글 시트에서 기초단어와 선택된 교재 단어들을 카테고리별로 분류
-  const CATEGORIZED_WORDS = useMemo(() => {
-    console.log('🔍 전체 단어 분석 시작:', words.length);
-    console.log('🔍 카테고리별 단어 수:', words.reduce((acc, word) => {
-      const cat = word.category || 'undefined';
-      acc[cat] = (acc[cat] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>));
-
-    // 기초단어가 있는지 확인
-    const basicWords = words.filter(word => word.category === '기초단어');
-    const hasBasicWords = basicWords.length > 0;
-    
-    console.log('🔍 기초단어 존재 여부:', hasBasicWords, '개수:', basicWords.length);
-
-    let subjects: Word[], verbs: Word[], grammar: Word[], adjectives: Word[], timeWords: Word[];
-
-    if (hasBasicWords) {
-      // 기초단어가 있으면 기초단어에서 문법 요소 추출
-      console.log('✅ 기초단어 모드 사용');
-      subjects = basicWords.filter(word => 
-        ['I', 'you', 'he', 'she', 'we', 'they'].includes(word.english.toLowerCase())
-      );
-      verbs = basicWords.filter(word => 
-        ['eat', 'drink', 'like', 'love', 'have', 'read', 'see', 'watch', 'play', 'listen', 'speak', 'write', 'buy', 'want', 'need', 'go', 'come', 'give', 'take', 'make', 'do', 'get', 'put', 'find', 'help', 'work', 'live', 'feel', 'think', 'know', 'learn', 'teach', 'study', 'cook', 'clean', 'open', 'close', 'start', 'stop', 'finish'].includes(word.english.toLowerCase())
-      );
-      grammar = basicWords.filter(word => 
-        ['a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'with', 'from', 'of', 'about', 'under', 'over', 'between'].includes(word.english.toLowerCase())
-      );
-      adjectives = basicWords.filter(word => 
-        ['big', 'small', 'good', 'bad', 'new', 'old', 'hot', 'cold', 'happy', 'sad', 'beautiful', 'ugly', 'fast', 'slow', 'easy', 'hard', 'long', 'short', 'high', 'low', 'clean', 'dirty', 'heavy', 'light', 'strong', 'weak'].includes(word.english.toLowerCase())
-      );
-      timeWords = basicWords.filter(word => 
-        ['today', 'yesterday', 'tomorrow', 'morning', 'afternoon', 'evening', 'night', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(word.english.toLowerCase())
-      );
-    } else {
-      // 기초단어가 없으면 하드코딩된 기본 문법 요소 사용
-      console.log('⚠️ 기초단어 없음 - 하드코딩 모드 사용');
-      subjects = [
-        { id: 'hardcoded_I', english: 'I', korean: '나는' },
-        { id: 'hardcoded_you', english: 'you', korean: '너는' },
-        { id: 'hardcoded_he', english: 'he', korean: '그는' },
-        { id: 'hardcoded_she', english: 'she', korean: '그녀는' }
-      ] as Word[];
-      
-      verbs = [
-        { id: 'hardcoded_eat', english: 'eat', korean: '먹다' },
-        { id: 'hardcoded_drink', english: 'drink', korean: '마시다' },
-        { id: 'hardcoded_like', english: 'like', korean: '좋아하다' },
-        { id: 'hardcoded_have', english: 'have', korean: '가지다' },
-        { id: 'hardcoded_read', english: 'read', korean: '읽다' },
-        { id: 'hardcoded_see', english: 'see', korean: '보다' }
-      ] as Word[];
-      
-      grammar = [] as Word[];
-      adjectives = [] as Word[];
-      timeWords = [] as Word[];
-    }
-
-    // 명사들: 기초단어가 있으면 (기초단어 중 명사 + 교재 단어), 없으면 모든 교재 단어
-    let nouns: Word[];
-    if (hasBasicWords) {
-      // 교재의 명사들 (기초단어가 아닌 모든 단어들)
-      const materialNouns = words.filter(word => 
-        word.category && word.category !== '기초단어'
-      );
-      // 기초단어 중 명사 (다른 품사에 속하지 않는 것들)
-      const basicNouns = basicWords.filter(word => 
-        !subjects.includes(word) && !verbs.includes(word) && !grammar.includes(word) && 
-        !adjectives.includes(word) && !timeWords.includes(word)
-      );
-      nouns = [...basicNouns, ...materialNouns];
-    } else {
-      // 기초단어가 없으면 모든 단어를 명사로 활용
-      nouns = words.filter(word => word.category && word.english && word.korean);
-    }
-
-    console.log('✅ 분류된 단어 수:', {
-      subjects: subjects.length,
-      verbs: verbs.length,
-      grammar: grammar.length,
-      adjectives: adjectives.length,
-      nouns: nouns.length,
-      timeWords: timeWords.length
-    });
-
-    return {
-      subjects,
-      verbs,
-      grammar,
-      adjectives,
-      nouns,
-      timeWords
-    };
-  }, [words]);
-
-  // TTS 발음 함수
-  const speakWord = useCallback((word: string) => {
-    try {
-      // 기존 음성 중단
-      window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(word);
-      utterance.rate = 0.8;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.7;
-      
-      // 미국 영어 음성 선택
-      const voices = window.speechSynthesis.getVoices();
-      const usVoice = voices.find(voice => voice.lang.includes('en-US'));
-      if (usVoice) {
-        utterance.voice = usVoice;
-      }
-      
-      window.speechSynthesis.speak(utterance);
-    } catch (error) {
-      console.error('TTS 오류:', error);
-    }
-  }, []);
-
-  // 구글 시트 기반 문장 생성 함수
-  const generateSentences = useCallback((): SentenceTemplate[] => {
-    const { subjects, verbs, nouns, grammar } = CATEGORIZED_WORDS;
-    
-    if (subjects.length === 0 || verbs.length === 0 || nouns.length === 0) {
-      console.warn('⚠️ 문장 생성에 필요한 기본 단어들이 부족합니다.');
-      console.log('필요한 카테고리:', {
-        subjects: subjects.length,
-        verbs: verbs.length,
-        nouns: nouns.length
-      });
-      return [];
-    }
-
-    console.log('🔤 구글 시트 기반 문장 생성 시작:', {
-      subjects: subjects.length,
-      verbs: verbs.length,
-      nouns: nouns.length,
-      grammar: grammar.length
-    });
-    
-    const sentences: SentenceTemplate[] = [];
-    let sentenceId = 1;
-
-    // 관사 가져오기 함수
-    const getArticle = (word: string): string => {
-      const vowels = ['a', 'e', 'i', 'o', 'u'];
-      return vowels.includes(word.toLowerCase()[0]) ? 'an' : 'a';
-    };
-
-    // 의미적으로 자연스러운 동사-명사 조합 규칙
-    const getSemanticRules = () => {
-      console.log('🔍 명사 분류 시작, 전체 명사:', nouns.map(n => `${n.english}(${n.korean})`));
-      
-      // 카테고리별 명사 분류 (더 엄격한 기준)
-      const liquidWords = nouns.filter(noun => {
-        const englishLower = noun.english.toLowerCase();
-        const korean = noun.korean;
-        return ['water', 'milk', 'juice', 'coffee', 'tea', 'soda', 'beer', 'wine', 'cola', 'lemonade'].includes(englishLower) ||
-               korean.includes('물') || korean.includes('우유') || korean.includes('주스') || 
-               korean.includes('커피') || korean.includes('차') || korean.includes('음료') ||
-               korean.includes('콜라') || korean.includes('레모네이드') || korean.includes('맥주') ||
-               korean.includes('와인') || korean === '차' || korean === '물'; // 정확한 매칭
-      });
-      
-      const solidFoodWords = nouns.filter(noun => {
-        const englishLower = noun.english.toLowerCase();
-        const korean = noun.korean;
-        return ['apple', 'banana', 'bread', 'cake', 'cookie', 'pizza', 'rice', 'sandwich', 'meat', 'fish', 'egg', 'fruit', 'vegetable', 'chicken', 'beef', 'pork'].includes(englishLower) ||
-               korean.includes('사과') || korean.includes('바나나') || korean.includes('빵') || 
-               korean.includes('케이크') || korean.includes('음식') || korean.includes('과자') ||
-               korean.includes('고기') || korean.includes('생선') || korean.includes('달걀') ||
-               korean.includes('과일') || korean.includes('채소') || korean.includes('치킨') ||
-               korean.includes('돼지') || korean.includes('소고기') || korean.includes('닭') ||
-               korean.includes('햄버거') || korean.includes('피자') || korean.includes('라면');
-      });
-      
-      const readableWords = nouns.filter(noun => {
-        const englishLower = noun.english.toLowerCase();
-        const korean = noun.korean;
-        return ['book', 'novel', 'story', 'magazine', 'newspaper', 'letter', 'email', 'comic', 'textbook'].includes(englishLower) ||
-               korean.includes('책') || korean.includes('소설') || korean.includes('잡지') || 
-               korean.includes('신문') || korean.includes('편지') || korean.includes('만화') ||
-               korean.includes('교과서') || korean.includes('도서') || korean === '책';
-      });
-      
-      const watchableWords = nouns.filter(noun => {
-        const englishLower = noun.english.toLowerCase();
-        const korean = noun.korean;
-        return ['movie', 'tv', 'video', 'show', 'game', 'film', 'drama'].includes(englishLower) ||
-               korean.includes('영화') || korean.includes('텔레비전') || korean.includes('비디오') ||
-               korean.includes('게임') || korean.includes('쇼') || korean.includes('드라마') ||
-               korean.includes('TV') || korean.includes('프로그램');
-      });
-      
-      const livingThings = nouns.filter(noun => {
-        const englishLower = noun.english.toLowerCase();
-        const korean = noun.korean;
-        return ['cat', 'dog', 'bird', 'fish', 'rabbit', 'tiger', 'lion', 'elephant', 'person', 'friend', 'animal', 'bear', 'mouse', 'horse'].includes(englishLower) ||
-               korean.includes('고양이') || korean.includes('개') || korean.includes('새') || 
-               korean.includes('물고기') || korean.includes('토끼') || korean.includes('동물') ||
-               korean.includes('사람') || korean.includes('친구') || korean.includes('곰') ||
-               korean.includes('쥐') || korean.includes('말') || korean.includes('호랑이') ||
-               korean.includes('사자') || korean.includes('코끼리');
-      });
-      
-      // 탈것/큰 물건들 (마실 수 없고 소유하기 어려운 것들)
-      const vehicles = nouns.filter(noun => {
-        const englishLower = noun.english.toLowerCase();
-        const korean = noun.korean;
-        return ['car', 'bus', 'train', 'plane', 'bicycle', 'motorcycle', 'truck', 'van'].includes(englishLower) ||
-               korean.includes('자동차') || korean.includes('버스') || korean.includes('기차') ||
-               korean.includes('비행기') || korean.includes('자전거') || korean.includes('오토바이') ||
-               korean.includes('트럭') || korean.includes('승합차') || korean.includes('택시') ||
-               korean.includes('지하철') || korean === '차';
-      });
-      
-      // 소유 가능한 작은 물건들 (액체, 음식, 탈것 제외)
-      const ownableThings = nouns.filter(noun => 
-        !liquidWords.includes(noun) && 
-        !solidFoodWords.includes(noun) && 
-        !vehicles.includes(noun) &&
-        !livingThings.includes(noun) // 생명체도 소유 대상에서 제외
-      );
-
-      console.log('📝 분류 결과:', {
-        liquidWords: liquidWords.map(n => n.korean),
-        solidFoodWords: solidFoodWords.map(n => n.korean),
-        readableWords: readableWords.map(n => n.korean),
-        livingThings: livingThings.map(n => n.korean),
-        vehicles: vehicles.map(n => n.korean),
-        ownableThings: ownableThings.map(n => n.korean)
-      });
-
-      return {
-        eat: solidFoodWords,           // 먹을 수 있는 것들만
-        drink: liquidWords,           // 마실 수 있는 것들만  
-        read: readableWords.length > 0 ? readableWords : [], // 읽을 수 있는 것들
-        see: [...livingThings, ...vehicles], // 볼 수 있는 것들 (생명체 + 탈것)
-        like: [...solidFoodWords, ...liquidWords, ...livingThings, ...ownableThings].slice(0, 12), // 좋아할 수 있는 것들
-        have: ownableThings.slice(0, 8), // 소유할 수 있는 작은 물건들만
-        watch: watchableWords.length > 0 ? watchableWords : [] // 볼 수 있는 것들
-      } as Record<string, Word[]>;
-    };
-
-    const semanticRules = getSemanticRules();
-
-    // 패턴 1: Subject + Verb + Noun (의미적으로 자연스러운 S+V+O 구조)
-    subjects.forEach(subject => {
-      verbs.forEach(verb => {
-        // 동사에 맞는 명사들만 선택
-        const compatibleNouns: Word[] = semanticRules[verb.english.toLowerCase()] || nouns.slice(0, 3);
-        
-        if (compatibleNouns.length === 0) return; // 호환되는 명사가 없으면 건너뛰기
-        
-        compatibleNouns.slice(0, 3).forEach((noun: Word) => {
-          // 관사가 필요한지 판단 (일반적으로 단수 명사)
-          const needsArticle = !noun.english.endsWith('s') && 
-                              !['water', 'milk', 'juice', 'coffee', 'tea', 'rice'].includes(noun.english.toLowerCase());
-          
-          // 동사의 주어에 따른 변화 처리
-          let conjugatedVerb = verb.english;
-          if ((subject.english === 'he' || subject.english === 'she') && 
-              ['like', 'eat', 'drink', 'read', 'see', 'have', 'want', 'need', 'watch'].includes(verb.english)) {
-            if (verb.english === 'have') {
-              conjugatedVerb = 'has';
-            } else {
-              conjugatedVerb = verb.english + 's';
-            }
-          }
-          
-          if (needsArticle) {
-            const article = getArticle(noun.english);
-            sentences.push({
-              id: `sentence_${sentenceId++}`,
-              korean: `${subject.korean} ${noun.korean}을/를 ${verb.korean}`,
-              template: `___ ___ ${article} ___`,
-              blanks: [subject.english, conjugatedVerb, noun.english],
-              difficulty: 'easy'
-            });
-          } else {
-            sentences.push({
-              id: `sentence_${sentenceId++}`,
-              korean: `${subject.korean} ${noun.korean}을/를 ${verb.korean}`,
-              template: `___ ___ ___`,
-              blanks: [subject.english, conjugatedVerb, noun.english],
-              difficulty: 'easy'
-            });
-          }
-        });
-      });
-    });
-
-    console.log(`✅ 구글 시트 기반 생성된 문장 수: ${sentences.length}`);
-    return sentences.slice(0, 30); // 최대 30개 문장
-  }, [CATEGORIZED_WORDS]);
-
   // 게임 상태
   const [gameKey, setGameKey] = useState(0);
-  const [questionCount, setQuestionCount] = useState<number | null>(null);
+  const [questionCount, setQuestionCount] = useState<number | null | 'infinite'>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
@@ -325,6 +22,12 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
   const [userBlanks, setUserBlanks] = useState<string[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [showNewRecord, setShowNewRecord] = useState(false);
+  const [quizStartTime, setQuizStartTime] = useState<number>(0);
+  const [sentenceProblems, setSentenceProblems] = useState<SentenceProblem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
   const sessionIdRef = useRef<string>('');
   const startTimeRef = useRef<number>(0);
 
@@ -334,10 +37,200 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     startTimeRef.current = Date.now();
   }, [gameKey]);
 
-  // 문장 데이터
-  const sentences = useMemo(() => generateSentences(), [generateSentences]);
-  const totalQuestions = questionCount || sentences.length;
-  const current = sentences[currentIndex];
+  // Supabase에서 문장 문제 데이터 로드
+  useEffect(() => {
+    const loadSentenceProblems = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('🔍 Supabase에서 문장 문제 데이터 로드 시작...');
+        
+        const problems = await SentenceProblemService.fetchAllProblems();
+        console.log('✅ 로드된 문장 문제 수:', problems.length);
+        console.log('🔍 로드된 문제들:', problems);
+        
+        if (problems.length > 0) {
+          console.log('📝 첫 번째 문제 상세:', problems[0]);
+          console.log('📝 첫 번째 문제의 targetWords:', problems[0].targetWords);
+          console.log('📝 첫 번째 문제의 targetWords 타입:', typeof problems[0].targetWords);
+        }
+        
+        // 샘플 데이터인지 확인 (테이블이 없을 때 반환되는 샘플 데이터)
+        const isSampleData = problems.length > 0 && problems.every(p => p.id.startsWith('sample_'));
+        
+        if (problems.length === 0) {
+          setError('문장 문제 데이터를 찾을 수 없습니다. 관리자에게 문의하거나 데이터를 추가해주세요.');
+        } else if (isSampleData) {
+          // 테이블이 없어서 샘플 데이터를 사용하는 경우
+          setShowSetupGuide(true);
+          setSentenceProblems(problems); // 샘플 데이터로 게임은 가능하게 함
+    } else {
+          setSentenceProblems(problems);
+        }
+      } catch (err) {
+        console.error('❌ 문장 문제 로드 실패:', err);
+        setError('문장 문제를 불러오는 중 오류가 발생했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSentenceProblems();
+  }, []);
+
+  // TTS 발음 함수 (사용자 설정 적용)
+  const speakWord = useCallback((word: string) => {
+    if (!("speechSynthesis" in window)) {
+      alert('이 브라우저에서는 음성 합성이 지원되지 않습니다.');
+      return;
+    }
+    try {
+      console.log('speakWord 호출:', word);
+      
+      // 이전 음성을 확실히 취소 (여러 번 시도)
+      window.speechSynthesis.cancel();
+      
+      // 잠시 후 한 번 더 취소 (브라우저에 따라 즉시 취소되지 않을 수 있음)
+      setTimeout(() => {
+        window.speechSynthesis.cancel();
+      }, 50);
+      
+      // 취소 후 충분한 지연을 두고 새 음성 재생
+      setTimeout(() => {
+        // 음성 목록을 다시 로드
+        const loadVoices = () => {
+          return new Promise<SpeechSynthesisVoice[]>((resolve) => {
+      const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+              resolve(voices);
+            } else {
+              window.speechSynthesis.onvoiceschanged = () => {
+                resolve(window.speechSynthesis.getVoices());
+              };
+              setTimeout(() => resolve([]), 1000);
+            }
+          });
+        };
+
+        // 전역 TTS 설정 읽기
+        let rate = 1.0 as number;
+        let gender: 'default' | 'male' | 'female' = 'default';
+        let accent: 'us' | 'uk' = 'us';
+        try {
+          const raw = localStorage.getItem('ttsSettings');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.rate === 'number') rate = parsed.rate;
+            if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') gender = parsed.gender;
+            if (parsed.accent === 'us' || parsed.accent === 'uk') accent = parsed.accent;
+          }
+        } catch {}
+
+        loadVoices().then(voices => {
+          const utterance = new SpeechSynthesisUtterance(word);
+          utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+          utterance.rate = rate;
+          utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+          
+          console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })));
+          
+          if (voices.length > 0) {
+            const preferLang = accent === 'uk' ? 'en-GB' : 'en-US';
+            
+            let candidates = voices.filter(v => v.lang?.toLowerCase() === preferLang.toLowerCase());
+            if (candidates.length === 0) {
+              const langCode = preferLang.split('-')[0].toLowerCase();
+              candidates = voices.filter(v => v.lang?.toLowerCase().startsWith(langCode));
+            }
+            if (candidates.length === 0) {
+              candidates = voices.filter(v => v.lang?.toLowerCase().includes('en'));
+            }
+            
+            let selectedVoice = null;
+            if (candidates.length > 0) {
+              if (gender === 'female') {
+                selectedVoice = candidates.find(v => 
+                  /female|woman|amy|emma|olivia|salli|joanna|ivy|kimberly|kendra|zira|susan/i.test(v.name)
+                ) || candidates[0];
+              } else if (gender === 'male') {
+                selectedVoice = candidates.find(v => 
+                  /male|man|brian|daniel|arthur|matthew|justin|joey|david|mark|alex/i.test(v.name)
+                ) || candidates[0];
+              } else {
+                selectedVoice = candidates[0];
+              }
+            }
+            
+            if (selectedVoice) {
+              utterance.voice = selectedVoice;
+              console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
+            }
+          }
+          
+          window.speechSynthesis.speak(utterance);
+        }).catch(() => {
+          const utterance = new SpeechSynthesisUtterance(word);
+          utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+          utterance.rate = rate;
+          utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+          window.speechSynthesis.speak(utterance);
+        });
+      }, 250); // 취소 후 250ms 지연 (더 안전하게)
+    } catch (e) {
+      console.error('발음 재생 오류:', e);
+    }
+  }, []);
+
+  // 현재 문제 - 다양한 문장 유형을 위해 필터링된 문장들 사용
+  const filteredProblems = useMemo(() => {
+    if (!sentenceProblems || sentenceProblems.length === 0) return [];
+    
+    // don't가 포함된 문장과 그렇지 않은 문장을 분리
+    const dontSentences = sentenceProblems.filter(p => 
+      p.targetWords.some(word => word.toLowerCase() === "don't")
+    );
+    const otherSentences = sentenceProblems.filter(p => 
+      !p.targetWords.some(word => word.toLowerCase() === "don't")
+    );
+    
+    console.log('📊 문장 유형 분류:');
+    console.log('- don\'t 포함 문장:', dontSentences.length);
+    console.log('- 기타 문장:', otherSentences.length);
+    
+    // 두 그룹을 번갈아가며 섞기
+    const mixedProblems = [];
+    const maxLength = Math.max(dontSentences.length, otherSentences.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+      if (i < otherSentences.length) {
+        mixedProblems.push(otherSentences[i]);
+      }
+      if (i < dontSentences.length) {
+        mixedProblems.push(dontSentences[i]);
+      }
+    }
+    
+    // 랜덤하게 섞기
+    const shuffledProblems = [...mixedProblems];
+    for (let i = shuffledProblems.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledProblems[i], shuffledProblems[j]] = [shuffledProblems[j], shuffledProblems[i]];
+    }
+    
+    console.log('🎯 랜덤 섞인 문장들:', shuffledProblems.map(p => p.englishSentence));
+    return shuffledProblems;
+  }, [sentenceProblems, gameKey]);
+  
+  const totalQuestions = questionCount === 'infinite' ? (filteredProblems?.length || 0) : (questionCount || (filteredProblems?.length || 0));
+  const current = filteredProblems?.[currentIndex];
+  
+  // 디버깅용 로그
+  console.log('🎮 현재 게임 상태:');
+  console.log('- sentenceProblems 길이:', sentenceProblems?.length);
+  console.log('- filteredProblems 길이:', filteredProblems?.length);
+  console.log('- currentIndex:', currentIndex);
+  console.log('- current 문제:', current);
+  console.log('- totalQuestions:', totalQuestions);
 
   // 사운드 재생 함수들
   const playCorrectSound = useCallback(() => {
@@ -360,21 +253,70 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     }
   }, []);
 
-  const playRecordSound = useCallback(() => {
-    try {
-      const audio = new Audio('/record.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log('사운드 재생 실패:', e));
-    } catch (error) {
-      console.error('사운드 재생 오류:', error);
+
+  // 다음 문제로 진행
+  const next = useCallback(() => {
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= totalQuestions) {
+      if (questionCount === 'infinite') {
+        // 무제한 모드: 새로운 랜덤 순서로 다시 시작
+        setGameKey(prev => prev + 1); // 새로운 랜덤 순서 생성
+        setCurrentIndex(0);
+        setUserBlanks([]);
+        setIsCorrect(null);
+        setQuizStartTime(Date.now()); // 새로운 세션 시작 시간 기록
+        console.log('🔄 무제한 모드: 새로운 랜덤 순서로 재시작');
+      } else {
+        // 게임 완료
+        setFinished(true);
+        
+        // 세션 저장 및 순위 확인
+        const endTime = Date.now();
+        const durationSec = Math.round((endTime - startTimeRef.current) / 1000);
+        
+        saveSession({
+          mode: 'sentenceGame' as Mode,
+          score,
+          total: typeof totalQuestions === 'number' ? totalQuestions : 0,
+          durationSec
+        });
+
+        // 순위 확인 (sentenceGame 관련 순위만)
+        const ranking = getAllRankings().find(r => r.quizType === 'sentenceGame');
+        const records = ranking?.records || [];
+        const isNewRecord = records.length < 10 || score > records[records.length - 1].score;
+        if (isNewRecord) {
+          setShowNewRecord(true);
+        }
+      }
+    } else {
+      // 다음 문제로
+      setCurrentIndex(nextIndex);
+      setUserBlanks([]);
+      setIsCorrect(null);
+      setShowNewRecord(false);
     }
-  }, []);
+  }, [currentIndex, totalQuestions, score]);
 
-  // 정답 체크 함수
+  // 정답 체크 함수 (순차적 답안용)
   const checkAnswer = useCallback((answer: string[]) => {
-    if (!current) return;
+    if (!gameSetup) return;
 
-    const isAnswerCorrect = JSON.stringify(answer) === JSON.stringify(current.blanks);
+    console.log('🔍 정답 체크 시작 (순차적):');
+    console.log('- 사용자 답안:', answer);
+    console.log('- 정답 순서 (비관사):', gameSetup.nonArticleWords);
+    
+    // 순차적으로 채운 답안을 정답과 비교
+    const isAnswerCorrect = answer.length === gameSetup.nonArticleWords.length && 
+      answer.every((word, index) => word.toLowerCase() === gameSetup.nonArticleWords[index].toLowerCase());
+    
+    console.log('- 순차적 비교 결과:', answer.map((word, index) => ({
+      userWord: word,
+      correctWord: gameSetup.nonArticleWords[index],
+      isMatch: word.toLowerCase() === gameSetup.nonArticleWords[index].toLowerCase()
+    })));
+    console.log('- 최종 정답 여부:', isAnswerCorrect);
+    
     setIsCorrect(isAnswerCorrect);
 
     if (isAnswerCorrect) {
@@ -388,7 +330,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     logAttempt({
       sessionId: sessionIdRef.current,
       mode: 'sentenceGame' as Mode,
-      wordId: current.id,
+      wordId: current?.id || 'unknown',
       correct: isAnswerCorrect
     });
 
@@ -396,25 +338,28 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setTimeout(() => {
       next();
     }, 2000);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, playCorrectSound, playWrongSound]);
+  }, [current, playCorrectSound, playWrongSound, next]);
 
-  // 단어 클릭 핸들러
+  // 단어 클릭 핸들러 (순차적 채우기용)
   const handleWordClick = useCallback((word: string) => {
-    if (finished || isCorrect !== null) return;
+    if (finished || isCorrect !== null || !gameSetup) return;
+
+    console.log('🎯 단어 클릭:', word, '현재 채워진 빈칸 수:', userBlanks.length);
 
     // 발음 재생
     speakWord(word);
 
-    // 빈칸에 단어 추가
+    // 사용자가 선택한 단어를 순차적으로 배열에 추가
     const newBlanks = [...userBlanks, word];
     setUserBlanks(newBlanks);
 
-    // 모든 빈칸이 채워지면 정답 체크
-    if (newBlanks.length === current?.blanks.length) {
-      checkAnswer(newBlanks);
+    // 모든 비관사 단어를 배열했으면 확인 버튼 활성화
+    if (newBlanks.length === gameSetup.nonArticleWords.length) {
+      console.log('🎯 모든 비관사 단어 배열 완료!');
+      console.log('🎯 사용자 답안 (순차적):', newBlanks);
+      console.log('🎯 정답 순서:', gameSetup.nonArticleWords);
     }
-  }, [finished, isCorrect, userBlanks, current?.blanks.length, speakWord, checkAnswer]);
+  }, [finished, isCorrect, userBlanks, speakWord]);
 
   // 답안 영역의 단어 클릭 핸들러 (단어 제거)
   const handleAnswerWordClick = useCallback((index: number) => {
@@ -429,55 +374,56 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setUserBlanks(newBlanks);
   }, [finished, isCorrect, userBlanks, speakWord]);
 
-  // 다음 문제로 진행
-  const next = useCallback(() => {
-    const nextIndex = currentIndex + 1;
-    if (nextIndex >= totalQuestions) {
-      // 게임 완료
-      setFinished(true);
-      
-      // 세션 저장 및 순위 확인
-      const endTime = Date.now();
-      const durationSec = Math.round((endTime - startTimeRef.current) / 1000);
-      const accuracy = Math.round((score / totalQuestions) * 100);
+  // 정답 확인 버튼 핸들러
+  const handleCheckAnswer = useCallback(() => {
+    if (!gameSetup || finished || isCorrect !== null) return;
 
-      const userName = getCurrentUserName();
+    console.log('🎯 정답 확인 버튼 클릭!');
+    console.log('🎯 사용자 답안 (순차적):', userBlanks);
+    console.log('🎯 정답 순서 (비관사):', gameSetup.nonArticleWords);
+    
+    // 순차적으로 채운 답안을 정답과 비교
+    const isAnswerCorrect = userBlanks.length === gameSetup.nonArticleWords.length && 
+      userBlanks.every((word, index) => word.toLowerCase() === gameSetup.nonArticleWords[index].toLowerCase());
+    
+    console.log('🎯 순차적 답안 비교 결과:', isAnswerCorrect);
+    console.log('🎯 사용자 답안:', userBlanks);
+    console.log('🎯 정답 답안:', gameSetup.nonArticleWords);
+    
+    // 정답 여부에 따라 다른 문장 읽기
+    let sentenceToRead: string;
+    
+    if (isAnswerCorrect) {
+      // 정답일 경우: 사용자가 만든 문장 읽기
+      const fullSentence: string[] = [];
+      let nonArticleCount = 0;
       
-      saveSession({
-        mode: 'sentenceGame' as Mode,
-        score,
-        total: totalQuestions,
-        durationSec
+      gameSetup.correctOrder.forEach(word => {
+        if (['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(word.toLowerCase())) {
+          fullSentence.push(word);
+        } else {
+          if (nonArticleCount < userBlanks.length) {
+            fullSentence.push(userBlanks[nonArticleCount]);
+          }
+          nonArticleCount++;
+        }
       });
-
-      // 순위 확인 및 저장
-      const finalQuestionCount: number | 'infinite' = questionCount || 'infinite';
-      const newRecord = isNewRecord('sentenceGame', durationSec * 1000, accuracy, finalQuestionCount);
-      
-      if (newRecord && accuracy === 100) {
-        setShowNewRecord(true);
-        playRecordSound();
-        
-        const record = {
-          userName,
-          quizType: 'sentenceGame' as const,
-          score,
-          totalQuestions,
-          accuracy,
-          totalTimeMs: durationSec * 1000,
-          questionCount: finalQuestionCount
-        };
-        addRecord(record);
-      }
+      sentenceToRead = fullSentence.join(' ');
+      console.log('🎯 정답! 사용자 문장 읽기:', sentenceToRead);
     } else {
-      setCurrentIndex(nextIndex);
-      setUserBlanks([]);
-      setIsCorrect(null);
+      // 오답일 경우: 정답 문장 읽기
+      sentenceToRead = gameSetup.correctOrder.join(' ');
+      console.log('🎯 오답! 정답 문장 읽기:', sentenceToRead);
     }
-  }, [currentIndex, totalQuestions, score, questionCount, playRecordSound]);
+    
+    speakWord(sentenceToRead);
+    
+    checkAnswer(userBlanks);
+  }, [finished, isCorrect, userBlanks, checkAnswer, speakWord]);
+
 
   // 게임 시작
-  const startGame = (count: number | null) => {
+  const startGame = (count: number | null | 'infinite') => {
     setQuestionCount(count);
     setGameStarted(true);
     setCurrentIndex(0);
@@ -486,6 +432,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setUserBlanks([]);
     setIsCorrect(null);
     setShowNewRecord(false);
+    setQuizStartTime(Date.now());
   };
 
   // 게임 리셋
@@ -501,40 +448,162 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setShowNewRecord(false);
   };
 
-  // 선택 가능한 단어들 (중복 제거된 shuffled words)
-  const shuffledWords = useMemo(() => {
-    if (!current) return [];
+  // 단어 배열 게임 로직
+  const gameSetup = useMemo(() => {
+    if (!current || !current.targetWords) return null;
     
-    // 현재 문제의 정답 단어들과 다른 단어들을 섞어서 선택지 생성
-    const { subjects, verbs, nouns } = CATEGORIZED_WORDS;
-    const allWords = [...subjects, ...verbs, ...nouns];
+    console.log('🎮 단어 배열 게임 설정 시작:');
+    console.log('- 영어 문장:', current.englishSentence);
+    console.log('- 타겟 단어들 (원본):', current.targetWords);
     
-    // 정답 단어들
-    const correctWords = current.blanks;
+    // 영어 문장을 단어별로 분리하여 올바른 순서 재구성
+    const englishWords = current.englishSentence
+      .replace(/[.,!?;:]/g, '') // 구두점 제거
+      .split(/\s+/) // 공백으로 분리
+      .filter(word => word.length > 0); // 빈 문자열 제거
     
-    // 오답 선택지 생성 (같은 카테고리에서)
-    const wrongChoices: string[] = [];
+    console.log('- 영어 문장 단어 분리:', englishWords);
     
-    correctWords.forEach(correctWord => {
-      const wordCategory = allWords.find(w => w.english === correctWord)?.category;
-      const sameCategory = allWords.filter(w => w.category === wordCategory && w.english !== correctWord);
+    // 관사 및 조동사/be동사 식별
+    const preFilledWords = ['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'];
+    
+    // 영어 문장의 모든 단어를 correctOrder에 포함 (targetWords와 매칭되지 않는 단어도 포함)
+    const correctOrder: string[] = [];
+    const remainingWords = [...current.targetWords];
+    
+    for (const englishWord of englishWords) {
+      // 대소문자 무시하고 매칭되는 단어 찾기
+      const matchingIndex = remainingWords.findIndex(word => 
+        word.toLowerCase() === englishWord.toLowerCase()
+      );
       
-      if (sameCategory.length > 0) {
-        const randomWrong = sameCategory[Math.floor(Math.random() * sameCategory.length)];
-        wrongChoices.push(randomWrong.english);
+      if (matchingIndex !== -1) {
+        // targetWords에서 찾은 경우: 원본 단어 사용 (대소문자 보존)
+        correctOrder.push(remainingWords[matchingIndex]);
+        remainingWords.splice(matchingIndex, 1); // 사용된 단어 제거
+      } else {
+        // targetWords에서 찾지 못한 경우: 영어 문장의 단어를 그대로 사용
+        correctOrder.push(englishWord);
+        console.log(`⚠️ targetWords에 없는 단어 발견: "${englishWord}"`);
+      }
+    }
+    
+    // 남은 targetWords 추가 (혹시 누락된 경우)
+    correctOrder.push(...remainingWords);
+    
+    console.log('- 재정렬된 정답 순서:', correctOrder);
+    console.log('- 원본 타겟 단어들:', current.targetWords);
+    
+    // 미리 채워질 단어와 선택지 단어 분리
+    const preFilledWordsList: string[] = [];
+    const nonPreFilledWords: string[] = [];
+    
+    correctOrder.forEach(word => {
+      if (preFilledWords.includes(word.toLowerCase())) {
+        preFilledWordsList.push(word);
+      } else {
+        nonPreFilledWords.push(word);
       }
     });
     
-    // 정답과 오답을 합쳐서 섞기
-    const allChoices = [...correctWords, ...wrongChoices.slice(0, 4)];
-    return allChoices.sort(() => Math.random() - 0.5).slice(0, 8); // 최대 8개 선택지
-  }, [current, CATEGORIZED_WORDS]);
+    console.log('- 미리 채워질 단어들:', preFilledWordsList);
+    console.log('- 선택지 단어들:', nonPreFilledWords);
+    
+    // 선택지 단어들만 랜덤하게 섞기 (미리 채워질 단어는 제외)
+    const shuffledWords = [...nonPreFilledWords].sort(() => Math.random() - 0.5);
+    
+    console.log('- 섞인 단어들:', shuffledWords);
+    
+    return {
+      correctOrder,
+      shuffledWords,
+      articleWords: preFilledWordsList,
+      nonArticleWords: nonPreFilledWords
+    };
+  }, [current]);
 
-  if (words.length === 0) {
+  // 진단 도구 표시
+  if (showDiagnostic) {
+    return <SupabaseDiagnostic onBack={onBack} />;
+  }
+
+  // 설정 가이드 표시
+  if (showSetupGuide) {
+    return <SupabaseSetupGuide onBack={onBack} />;
+  }
+
+  // 로딩 중
+  if (loading) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>📖 영어 문장 만들기</h2>
-        <p>단어가 없습니다. 구글 시트에 필수 단어들을 추가해주세요.</p>
+        <p>문장 문제를 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  // 오류 발생
+  if (error) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <h2>📖 영어 문장 만들기</h2>
+        <p style={{ color: '#c62828', margin: '20px 0' }}>{error}</p>
+        
+        <div style={{ 
+          backgroundColor: '#f5f5f5', 
+          padding: '20px', 
+          borderRadius: '8px', 
+          margin: '20px auto',
+          textAlign: 'left',
+          maxWidth: '600px'
+        }}>
+          <h3>🔧 문제 해결 방법:</h3>
+          <ol>
+            <li>Supabase 연결 상태를 확인하세요</li>
+            <li>sentence_problems 테이블에 데이터가 있는지 확인하세요</li>
+            <li>데이터 형식이 올바른지 확인하세요:</li>
+            <ul>
+              <li>id, korean_sentence, english_sentence, source, target_words, word_count, level</li>
+              <li>target_words는 JSON 배열 형태여야 합니다: ["I", "don't", "eat", "apple", "an"]</li>
+            </ul>
+            <li>브라우저 개발자 도구(F12)의 콘솔에서 자세한 로그를 확인하세요</li>
+            <li>관리자에게 문의하여 데이터 마이그레이션을 요청하세요</li>
+          </ol>
+          
+          <p style={{ marginTop: '15px', fontSize: '14px', color: '#666' }}>
+            💡 Supabase Dashboard에서 sentence_problems 테이블을 확인해보세요
+          </p>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <button 
+            onClick={() => setShowDiagnostic(true)}
+            style={{
+              padding: '12px 24px',
+              fontSize: '16px',
+              backgroundColor: '#FF9800',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            🔧 진단 도구
+          </button>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '12px 24px',
+              fontSize: '16px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            새로고침
+          </button>
         <button 
           onClick={onBack}
           style={{
@@ -549,20 +618,17 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
         >
           메인으로
         </button>
+        </div>
       </div>
     );
   }
 
-  if (sentences.length === 0) {
+  // 문장 문제가 없는 경우
+  if (!sentenceProblems || sentenceProblems.length === 0) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>📖 영어 문장 만들기</h2>
-        <p>문장을 생성할 수 없습니다. 구글 시트에 다음 카테고리의 단어들을 추가해주세요:</p>
-        <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '20px auto' }}>
-          <li><strong>subject</strong>: I, you, he, she, we, they</li>
-          <li><strong>verb</strong>: eat, drink, like, have, read, see 등</li>
-          <li><strong>noun</strong>: apple, book, cat, water 등 (다른 카테고리들)</li>
-        </ul>
+        <p>문장 문제가 없습니다. 관리자에게 문의하여 데이터를 추가해주세요.</p>
         <button 
           onClick={onBack}
           style={{
@@ -585,6 +651,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>📖 영어 문장 만들기</h2>
+        <p>총 {sentenceProblems?.length || 0}개의 문장 문제가 있습니다.</p>
         <p>문제 수를 선택하세요:</p>
         <div style={{ 
           display: 'grid', 
@@ -595,14 +662,15 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
         }}>
           <button
             onClick={() => startGame(10)}
+            disabled={(sentenceProblems?.length || 0) < 10}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
-              backgroundColor: '#4CAF50',
+              backgroundColor: (sentenceProblems?.length || 0) < 10 ? '#ccc' : '#4CAF50',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: 'pointer',
+              cursor: (sentenceProblems?.length || 0) < 10 ? 'not-allowed' : 'pointer',
               fontWeight: 'bold'
             }}
           >
@@ -610,14 +678,15 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           </button>
           <button
             onClick={() => startGame(20)}
+            disabled={(sentenceProblems?.length || 0) < 20}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
-              backgroundColor: '#2196F3',
+              backgroundColor: (sentenceProblems?.length || 0) < 20 ? '#ccc' : '#2196F3',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: 'pointer',
+              cursor: (sentenceProblems?.length || 0) < 20 ? 'not-allowed' : 'pointer',
               fontWeight: 'bold'
             }}
           >
@@ -625,14 +694,15 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           </button>
           <button
             onClick={() => startGame(30)}
+            disabled={(sentenceProblems?.length || 0) < 30}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
-              backgroundColor: '#FF9800',
+              backgroundColor: (sentenceProblems?.length || 0) < 30 ? '#ccc' : '#FF9800',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: 'pointer',
+              cursor: (sentenceProblems?.length || 0) < 30 ? 'not-allowed' : 'pointer',
               fontWeight: 'bold'
             }}
           >
@@ -651,7 +721,22 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
               fontWeight: 'bold'
             }}
           >
-            무제한
+            전체 문제
+          </button>
+          <button
+            onClick={() => startGame('infinite' as any)}
+            style={{
+              padding: '30px 20px',
+              fontSize: '18px',
+              backgroundColor: '#E91E63',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            무제한 모드
           </button>
         </div>
         <button 
@@ -675,7 +760,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
 
   if (finished) {
     const accuracy = Math.round((score / totalQuestions) * 100);
-    const durationSec = Math.round((Date.now() - startTimeRef.current) / 1000);
+    const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
     
     const getComment = (accuracy: number) => {
       if (accuracy === 100) return "완벽해요! 🎉";
@@ -784,9 +869,10 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
       }}>
         <div>문제 {currentIndex + 1}/{totalQuestions}</div>
         <div>점수: {score}</div>
+        <div>출처: {current?.source}</div>
       </div>
 
-      {/* 한국어 의미 */}
+      {/* 한국어 문장 */}
       <div style={{
         fontSize: '24px',
         fontWeight: 'bold',
@@ -796,7 +882,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
         backgroundColor: '#e3f2fd',
         borderRadius: '12px'
       }}>
-        {current.korean}
+        {current?.koreanSentence}
       </div>
 
       {/* 사용자 답안 영역 */}
@@ -811,56 +897,138 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
         minHeight: '80px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         flexWrap: 'wrap',
         gap: '10px'
       }}>
-        {current.template.split('___').map((part, partIndex) => (
-          <React.Fragment key={partIndex}>
-            {/* 고정된 단어 (관사 등) */}
-            {part.trim() && (
-              <span style={{ margin: '0 5px' }}>{part.trim()}</span>
-            )}
-            
-            {/* 빈칸 또는 사용자가 입력한 단어 */}
-            {partIndex < current.blanks.length && (
+        {/* 전체 문장 순서대로 표시 (순차적 채우기) */}
+        {gameSetup?.correctOrder.map((word, index) => {
+          const isPreFilled = ['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(word.toLowerCase());
+          
+          if (isPreFilled) {
+            // 관사 및 조동사/be동사는 미리 채워진 상태로 표시
+            return (
               <div
+                key={`article-${index}`}
                 style={{
                   minWidth: '100px',
                   minHeight: '50px',
-                  border: userBlanks[partIndex] ? 'none' : '2px dashed #999',
+                  border: '2px solid #4CAF50',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: userBlanks[partIndex] ? '#e3f2fd' : '#f9f9f9',
+                  backgroundColor: '#e8f5e8',
                   margin: '0 5px',
-                  cursor: userBlanks[partIndex] ? 'pointer' : 'default'
+                  fontWeight: 'bold',
+                  color: '#2e7d32'
                 }}
-                onClick={() => userBlanks[partIndex] && handleAnswerWordClick(partIndex)}
               >
-                {userBlanks[partIndex] ? (
-                  <button
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '20px',
-                      fontWeight: 'bold',
-                      backgroundColor: '#2196F3',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {userBlanks[partIndex]}
-                  </button>
-                ) : (
-                  <span style={{ color: '#999', fontSize: '16px' }}>{partIndex + 1}</span>
-                )}
+                {word}
               </div>
-            )}
-          </React.Fragment>
-        ))}
+            );
+          }
+          
+          // 비관사 단어들의 순차적 인덱스 계산
+          let nonArticleIndex = -1;
+          let currentNonArticleCount = 0;
+          
+          // 현재 단어까지의 비관사 단어 개수를 세기
+          for (let i = 0; i <= index; i++) {
+            const currentWord = gameSetup.correctOrder[i];
+            if (!['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(currentWord.toLowerCase())) {
+              if (i === index) {
+                nonArticleIndex = currentNonArticleCount;
+              }
+              currentNonArticleCount++;
+            }
+          }
+          
+          const isFilled = nonArticleIndex >= 0 && nonArticleIndex < userBlanks.length;
+          const userWord = isFilled ? userBlanks[nonArticleIndex] : null;
+          
+          if (isFilled && userWord) {
+            // 사용자가 채운 단어 (순차적)
+            return (
+              <div
+                key={`filled-${index}`}
+                    style={{
+                  minWidth: '100px',
+                  minHeight: '50px',
+                  border: '2px solid #4CAF50',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#e8f5e8',
+                  margin: '0 5px',
+                      fontWeight: 'bold',
+                  color: '#2e7d32',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                onClick={() => handleAnswerWordClick(nonArticleIndex)}
+              >
+                <button
+                  style={{
+                    background: 'none',
+                      border: 'none',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: '#2e7d32',
+                    cursor: 'pointer',
+                    padding: '5px 10px'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAnswerWordClick(nonArticleIndex);
+                  }}
+                >
+                  {userWord}
+                  </button>
+                <span style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  backgroundColor: '#ff4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  ×
+                </span>
+              </div>
+            );
+          }
+          
+          // 빈 자리
+          return (
+            <div
+              key={`empty-${index}`}
+              style={{
+                minWidth: '100px',
+                minHeight: '50px',
+                border: '2px dashed #ccc',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f9f9f9',
+                margin: '0 5px',
+                color: '#999',
+                fontSize: '16px'
+              }}
+            >
+              {nonArticleIndex + 1}
+            </div>
+          );
+        })}
       </div>
 
       {/* 정답/오답 표시 */}
@@ -875,12 +1043,12 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           color: isCorrect ? '#2e7d32' : '#c62828'
         }}>
           {isCorrect ? '정답입니다! 🎉' : '틀렸습니다 😅'}
-          {!isCorrect && (
             <div style={{ marginTop: '10px', fontSize: '18px' }}>
-              정답: {(() => {
-                let blankIndex = 0;
-                return current.template.replace(/___/g, () => current.blanks[blankIndex++] || '');
-              })()}
+            정답: {gameSetup?.correctOrder?.join(' ')}
+          </div>
+          {!isCorrect && (
+            <div style={{ marginTop: '5px', fontSize: '16px', color: '#666' }}>
+              다시 시도해보세요!
             </div>
           )}
         </div>
@@ -900,24 +1068,27 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           gap: '15px',
           marginTop: '20px'
         }}>
-          {shuffledWords.map((word, index) => {
+          {gameSetup?.shuffledWords.map((word, index) => {
+            // 이미 사용된 단어는 비활성화
             const isUsed = userBlanks.includes(word);
+            
             return (
               <button
                 key={index}
                 onClick={() => handleWordClick(word)}
-                disabled={isUsed || finished || isCorrect !== null}
+                disabled={finished || isCorrect !== null || isUsed}
                 style={{
                   padding: '15px 10px',
                   fontSize: '18px',
                   fontWeight: 'bold',
-                  backgroundColor: isUsed ? '#ccc' : '#2196F3',
+                  backgroundColor: isUsed ? '#ccc' : '#4CAF50',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: isUsed || finished || isCorrect !== null ? 'not-allowed' : 'pointer',
-                  opacity: isUsed ? 0.5 : 1,
-                  minHeight: '60px'
+                  cursor: (finished || isCorrect !== null || isUsed) ? 'not-allowed' : 'pointer',
+                  opacity: (finished || isCorrect !== null || isUsed) ? 0.6 : 1,
+                  minHeight: '60px',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 {word}
@@ -926,6 +1097,48 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           })}
         </div>
       </div>
+
+      {/* 정답 확인 버튼 */}
+      {gameSetup && userBlanks.length === gameSetup.nonArticleWords.length && isCorrect === null && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          marginTop: '20px' 
+        }}>
+          <button
+            onClick={handleCheckAnswer}
+            disabled={finished || isCorrect !== null}
+            style={{
+              padding: '15px 30px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              backgroundColor: '#FF9800',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: finished || isCorrect !== null ? 'not-allowed' : 'pointer',
+              opacity: finished || isCorrect !== null ? 0.6 : 1,
+              minHeight: '60px',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+            onMouseEnter={(e) => {
+              if (!finished && isCorrect === null) {
+                e.currentTarget.style.backgroundColor = '#F57C00';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!finished && isCorrect === null) {
+                e.currentTarget.style.backgroundColor = '#FF9800';
+                e.currentTarget.style.transform = 'scale(1)';
+              }
+            }}
+          >
+            ✅ 정답 확인
+          </button>
+        </div>
+      )}
 
       {/* 하단 버튼 */}
       <div style={{ marginTop: '30px' }}>

@@ -422,34 +422,30 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
     if (checked !== null || timeLeft === 0 || !currentQuestion) return; // 이미 답을 확인한 경우 또는 currentQuestion이 없는 경우
     
     setSelectedAnswer(option.english);
-    const isCorrect = option.english === currentQuestion.correctAnswer;
+  };
+
+  const handleCheckAnswer = () => {
+    if (selectedAnswer === null || checked !== null || !currentQuestion) return;
+    
+    const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
     setChecked(isCorrect);
+    
     if (isCorrect) {
       setScore(s => s + 1);
       playCorrectSound(); // 정답 효과음 재생
-      // 정답이면 일정 시간 후 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     } else {
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === currentQuestion.word.id) ? prev : [...prev, currentQuestion.word]));
-      // 오답이어도 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     }
+    
     // Log attempt & SRS update
     logAttempt({ sessionId, mode: 'spellingQuiz', wordId: currentQuestion.word.id, correct: isCorrect });
     updateProgress({ wordId: currentQuestion.word.id, correct: isCorrect });
+    
+    // 2초 후 다음 문제로 자동 이동
+    setTimeout(() => {
+      next();
+    }, 2000);
   };
 
   const next = () => {
@@ -700,14 +696,14 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
                   borderRadius: '10px',
                   border: '2px solid #e0e0e0',
                   backgroundColor: checked === null 
-                    ? '#fff' 
+                    ? (selectedAnswer === option.english ? '#2196F3' : '#fff')
                     : isCorrect
                       ? '#4CAF50' 
                       : isWrong
                         ? '#F44336' 
                         : '#f5f5f5',
                   color: checked === null 
-                    ? '#333' 
+                    ? (selectedAnswer === option.english ? '#fff' : '#333')
                     : isCorrect
                       ? '#fff' 
                       : isWrong
@@ -756,9 +752,60 @@ export default function SpellingQuiz({ words, onBack }: SpellingQuizProps) {
           })}
         </div>
 
-        
+        {/* 확인 버튼 */}
+        {selectedAnswer !== null && checked === null && (
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            marginTop: '20px' 
+          }}>
+            <button
+              onClick={handleCheckAnswer}
+              disabled={selectedAnswer === null}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                backgroundColor: '#FF9800',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: selectedAnswer === null ? 'not-allowed' : 'pointer',
+                opacity: selectedAnswer === null ? 0.6 : 1,
+                minHeight: '60px',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              onMouseEnter={(e) => {
+                if (selectedAnswer !== null) {
+                  e.currentTarget.style.backgroundColor = '#F57C00';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedAnswer !== null) {
+                  e.currentTarget.style.backgroundColor = '#FF9800';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }
+              }}
+            >
+              ✅ 정답 확인
+            </button>
+          </div>
+        )}
+
+        {/* 정답/오답 표시 */}
         {checked !== null && (
-          <div style={{ marginTop: 12, fontWeight: 700, color: checked ? '#4CAF50' : '#F44336' }}>
+          <div style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            margin: '20px 0',
+            padding: '15px',
+            borderRadius: '10px',
+            backgroundColor: checked ? '#e8f5e8' : '#fde8e8',
+            color: checked ? '#2e7d32' : '#c62828',
+            textAlign: 'center'
+          }}>
             {checked ? '정답입니다! 🎉' : `오답입니다. 정답: ${currentQuestion.correctAnswer}`}
           </div>
         )}

@@ -185,6 +185,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const scoreRef = useRef(0);
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
   const [finished, setFinished] = useState(false);
@@ -195,7 +196,6 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   const [questionCount, setQuestionCount] = useState<null | number | 'infinite'>(null);
   const [quizStartTime, setQuizStartTime] = useState<number>(0);
   const [isNewRecordAchieved, setIsNewRecordAchieved] = useState<boolean>(false);
-  const [hasPlayedCurrentAudio, setHasPlayedCurrentAudio] = useState(false);
 
   useEffect(() => {
     selectedRef.current = selected;
@@ -225,7 +225,6 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
     setWrongQuestions([]);
     setFinished(false);
     setTimeLeft(10);
-    setHasPlayedCurrentAudio(false);
   }, [eligible, hasEnough, questionCount]);
 
   const current = questions[index] || null;
@@ -234,55 +233,13 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   useEffect(() => {
     if (finished || !current) return;
     setTimeLeft(10);
-    setHasPlayedCurrentAudio(false);
     
     // 첫 번째 문제 시작 시에만 퀴즈 시작 시간 기록
     if (index === 0 && quizStartTime === 0) {
       setQuizStartTime(Date.now());
     }
     
-    // 새 문제가 시작되면 자동으로 발음 재생 (정답 사운드와 겹치지 않도록 지연)
-    const playAudioTimeout = setTimeout(() => {
-      console.log('자동 발음 재생 시도:', {
-        current: current?.english,
-        hasPlayedCurrentAudio,
-        finished,
-        index,
-        currentId: current?.id,
-        questionsId: questions[index]?.id
-      });
-      
-      if (current && !hasPlayedCurrentAudio && !finished && questions[index]?.id === current.id) {
-        // 이전 음성을 강제로 취소 (여러 번 시도)
-        window.speechSynthesis.cancel();
-        
-        // 더 안전한 지연 시간으로 재생
-        setTimeout(() => {
-          // 재생 전 한 번 더 확인 (문제가 바뀌지 않았는지)
-          if (current && !finished && questions[index]?.id === current.id && !hasPlayedCurrentAudio) {
-            console.log('발음 재생 실행:', current.english);
-            
-            // TTS가 이미 실행 중이지 않은지 확인
-            if (!window.speechSynthesis.speaking) {
-              speakWord(current.english);
-              setHasPlayedCurrentAudio(true);
-            } else {
-              console.log('TTS가 이미 실행 중이므로 재시도');
-              // TTS가 실행 중이면 잠시 후 재시도
-              setTimeout(() => {
-                if (current && !finished && questions[index]?.id === current.id && !hasPlayedCurrentAudio) {
-                  window.speechSynthesis.cancel();
-                  setTimeout(() => {
-                    speakWord(current.english);
-                    setHasPlayedCurrentAudio(true);
-                  }, 100);
-                }
-              }, 500);
-            }
-          }
-        }, 200); // 취소 후 더 긴 지연 (200ms)
-      }
-    }, 1300); // 1.3초 후에 자동 재생 (더 여유있게)
+    // 자동 재생 제거 - 사용자가 직접 듣기 버튼을 눌러야 함
     
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -319,7 +276,6 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
     
     return () => {
       clearInterval(timer);
-      clearTimeout(playAudioTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, finished, current]);
@@ -335,39 +291,37 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   }, [current, eligible]);
 
   const handleSelect = (optIndex: number) => {
-    if (selected !== null || !current || !options[optIndex] || timeLeft === 0) return;
+    if (selected !== null || !current || !options[optIndex] || timeLeft === 0 || isCorrect !== null) return;
     setSelected(optIndex);
-    if (options[optIndex].id === current.id) {
+  };
+
+  const handleCheckAnswer = () => {
+    if (selected === null || !current || !options[selected] || isCorrect !== null) return;
+    
+    const correct = options[selected].id === current.id;
+    setIsCorrect(correct);
+    
+    if (correct) {
       setScore(s => {
         const newScore = s + 1;
         console.log(`정답! 점수 증가: ${s} → ${newScore} (문제 ${index + 1}/${questions.length})`);
         return newScore;
       });
       playCorrectSound(); // 정답 효과음 재생
-      // 정답이면 일정 시간 후 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     } else {
       console.log(`오답! 점수 변화 없음 (문제 ${index + 1}/${questions.length})`);
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
-      // 오답이어도 자동으로 다음 문제로 이동
-      if (autoNextTimeoutRef.current !== null) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = window.setTimeout(() => {
-        autoNextTimeoutRef.current = null;
-        next();
-      }, AUTO_NEXT_DELAY_MS);
     }
+    
     // log attempt & SRS
-    logAttempt({ sessionId, mode: 'listeningQuiz', wordId: current.id, correct: options[optIndex].id === current.id });
-    updateProgress({ wordId: current.id, correct: options[optIndex].id === current.id });
+    logAttempt({ sessionId, mode: 'listeningQuiz', wordId: current.id, correct });
+    updateProgress({ wordId: current.id, correct });
+    
+    // 2초 후 다음 문제로 자동 이동
+    setTimeout(() => {
+      next();
+    }, 2000);
   };
 
   const next = () => {
@@ -387,6 +341,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
         setQuestions(pickRandom(eligible, count));
         setIndex(0);
         setSelected(null);
+        setIsCorrect(null);
         setTimeLeft(10);
         setQuizStartTime(Date.now()); // 무제한 모드에서 새로운 세션 시작 시간 기록
         return;
@@ -435,7 +390,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
     }
     setIndex(i => i + 1);
     setSelected(null);
-    setHasPlayedCurrentAudio(false); // 다음 문제를 위해 초기화
+    setIsCorrect(null);
   };
 
   const speakWord = (text: string) => {
@@ -703,11 +658,11 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
               발음을 듣고 정답을 선택하세요
             </div>
             <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
-              문제가 시작되면 자동으로 발음이 재생됩니다
+              듣기 버튼을 눌러서 발음을 들어보세요
             </div>
           </div>
 
-          {/* 다시 듣기 버튼 */}
+          {/* 듣기 버튼 */}
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <button
               onClick={() => speakWord(current.english)}
@@ -737,7 +692,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
                 e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,152,0,0.3)';
               }}
             >
-              🔄 다시 듣기
+              🎧 듣기
             </button>
           </div>
 
@@ -751,14 +706,14 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
             margin: '0 auto' 
           }}>
             {options.map((w, i) => {
-              const isCorrect = selected !== null && w.id === current.id;
-              const isWrong = selected === i && w.id !== current.id;
+              const isThisCorrect = selected !== null && w.id === current.id;
+              const isThisWrong = selected === i && isCorrect !== null && !isCorrect;
               return (
                 <button
                   key={w.id}
                   onClick={() => handleSelect(i)}
-                  className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
-                  disabled={selected !== null || timeLeft === 0}
+                  className={`option-button ${isThisCorrect ? 'correct' : ''} ${isThisWrong ? 'incorrect' : ''}`}
+                  disabled={selected !== null || timeLeft === 0 || isCorrect !== null}
                   style={{
                     fontSize: '24px',
                     lineHeight: '1.3',
@@ -769,16 +724,14 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
                     border: '2px solid #e0e0e0',
                     backgroundColor: selected === null
                       ? '#fff'
-                      : isCorrect
-                        ? '#4CAF50'
-                        : isWrong
-                          ? '#F44336'
-                          : '#f5f5f5',
+                      : isCorrect !== null
+                        ? (isThisCorrect ? '#4CAF50' : (isThisWrong ? '#F44336' : '#f5f5f5'))
+                        : (selected === i ? '#2196F3' : '#f5f5f5'),
                     color: selected === null
                       ? '#333'
-                      : isCorrect || isWrong
-                        ? '#fff'
-                        : '#666',
+                      : isCorrect !== null
+                        ? (isThisCorrect || isThisWrong ? '#fff' : '#666')
+                        : (selected === i ? '#fff' : '#666'),
                     boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
                     transition: 'all 0.2s ease',
                     cursor: selected !== null || timeLeft === 0 ? 'default' : 'pointer'
@@ -790,15 +743,62 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
             })}
           </div>
 
-          {selected !== null && (
-            (() => {
-              const isCorrect = (selected as number) >= 0 && options[(selected as number)] && options[(selected as number)].id === current.id;
-              return (
-                <div style={{ marginTop: 20, fontWeight: 700, color: isCorrect ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
-                  {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
-                </div>
-              );
-            })()
+          {/* 확인 버튼 */}
+          {selected !== null && isCorrect === null && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              marginTop: '20px' 
+            }}>
+              <button
+                onClick={handleCheckAnswer}
+                disabled={selected === null}
+                style={{
+                  padding: '15px 30px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: selected === null ? 'not-allowed' : 'pointer',
+                  opacity: selected === null ? 0.6 : 1,
+                  minHeight: '60px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+                onMouseEnter={(e) => {
+                  if (selected !== null) {
+                    e.currentTarget.style.backgroundColor = '#F57C00';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selected !== null) {
+                    e.currentTarget.style.backgroundColor = '#FF9800';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }
+                }}
+              >
+                ✅ 정답 확인
+              </button>
+            </div>
+          )}
+
+          {/* 정답/오답 표시 */}
+          {isCorrect !== null && (
+            <div style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              margin: '20px 0',
+              padding: '15px',
+              borderRadius: '10px',
+              backgroundColor: isCorrect ? '#e8f5e8' : '#fde8e8',
+              color: isCorrect ? '#2e7d32' : '#c62828',
+              textAlign: 'center'
+            }}>
+              {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
+            </div>
           )}
         </>
       )}

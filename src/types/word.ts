@@ -16,3 +16,13 @@ export interface PronunciationResult {
   feedback: string;
   suggestions: string[];
 }
+
+export interface SentenceProblem {
+  id: string;
+  koreanSentence: string;
+  englishSentence: string;
+  source: string;
+  targetWords: string[];
+  wordCount: number;
+  level: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+}

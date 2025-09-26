@@ -81,21 +81,21 @@ const SupabaseDiagnostic: React.FC<SupabaseDiagnosticProps> = ({ onBack }) => {
       // 3. 연결 테스트 (기존 테이블 사용)
       try {
         // 기존에 존재하는 테이블로 연결 테스트
-        const { data: sessionsData, error: sessionsError } = await supabase
+        const { error: sessionsError } = await supabase
           .from('sessions')
           .select('id')
           .limit(1);
 
         if (sessionsError && sessionsError.code === 'PGRST116') {
           // sessions 테이블이 없으면 attempts 테이블로 시도
-          const { data: attemptsData, error: attemptsError } = await supabase
+          const { error: attemptsError } = await supabase
             .from('attempts')
             .select('id')
             .limit(1);
 
           if (attemptsError && attemptsError.code === 'PGRST116') {
             // attempts 테이블도 없으면 progresses 테이블로 시도
-            const { data: progressesData, error: progressesError } = await supabase
+            const { error: progressesError } = await supabase
               .from('progresses')
               .select('user_id')
               .limit(1);
@@ -155,7 +155,7 @@ const SupabaseDiagnostic: React.FC<SupabaseDiagnosticProps> = ({ onBack }) => {
       if (newDiagnostics.connection) {
         try {
           // sentence_problems 테이블이 있는지 확인
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('sentence_problems')
             .select('id')
             .limit(1);

@@ -219,7 +219,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     
     console.log('🎯 랜덤 섞인 문장들:', shuffledProblems.map(p => p.englishSentence));
     return shuffledProblems;
-  }, [sentenceProblems, gameKey]);
+  }, [sentenceProblems]);
   
   const totalQuestions = questionCount === 'infinite' ? (filteredProblems?.length || 0) : (questionCount || (filteredProblems?.length || 0));
   const current = filteredProblems?.[currentIndex];
@@ -296,7 +296,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
       setIsCorrect(null);
       setShowNewRecord(false);
     }
-  }, [currentIndex, totalQuestions, score]);
+  }, [currentIndex, totalQuestions, score, questionCount]);
 
   // 정답 체크 함수 (순차적 답안용)
   const checkAnswer = useCallback((answer: string[]) => {

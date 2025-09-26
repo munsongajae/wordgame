@@ -338,7 +338,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setTimeout(() => {
       next();
     }, 2000);
-  }, [current, playCorrectSound, playWrongSound, next]);
+  }, [current, playCorrectSound, playWrongSound, next]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 단어 클릭 핸들러 (순차적 채우기용)
   const handleWordClick = useCallback((word: string) => {
@@ -359,7 +359,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
       console.log('🎯 사용자 답안 (순차적):', newBlanks);
       console.log('🎯 정답 순서:', gameSetup.nonArticleWords);
     }
-  }, [finished, isCorrect, userBlanks, speakWord]);
+  }, [finished, isCorrect, userBlanks, speakWord]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 답안 영역의 단어 클릭 핸들러 (단어 제거)
   const handleAnswerWordClick = useCallback((index: number) => {
@@ -419,7 +419,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     speakWord(sentenceToRead);
     
     checkAnswer(userBlanks);
-  }, [finished, isCorrect, userBlanks, checkAnswer, speakWord]);
+  }, [finished, isCorrect, userBlanks, checkAnswer, speakWord]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // 게임 시작

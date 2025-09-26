@@ -126,6 +126,11 @@ function App() {
             word.category && sourcesArray.includes(word.category)
           );
           console.log(`🔍 필터링 결과: ${filteredWords.length}개 단어 (선택된 교재: ${sourcesArray.join(', ')})`);
+        } else {
+          // '전체' 선택 시에도 '기초단어', '필수단어'는 제외
+          const excluded = new Set(['기초단어', '필수단어']);
+          filteredWords = fetchedWords.filter(word => !excluded.has(word.category || ''));
+          console.log(`🔍 '전체' 선택 - 기초단어/필수단어 제외: ${filteredWords.length}개 단어`);
         }
         
         console.log(`✅ 구글 시트에서 단어 로드 성공: ${filteredWords.length}개 (전체: ${fetchedWords.length}개, 선택된 교재: ${sourcesArray.join(', ')})`);
@@ -404,6 +409,13 @@ function App() {
                 disabled={isLoading}
               >
                 기적의파닉스3권
+              </button>
+              <button 
+                className={`source-filter-button ${selectedSources.includes('그림영어사전') ? 'active' : ''}`}
+                onClick={() => toggleSource('그림영어사전')}
+                disabled={isLoading}
+              >
+                그림영어사전
               </button>
             </div>
           </div>
@@ -895,6 +907,13 @@ function App() {
                   disabled={isLoading}
                 >
                   기적의파닉스3권
+                </button>
+                <button 
+                  className={`source-filter-button ${selectedSources.includes('그림영어사전') ? 'active' : ''}`}
+                  onClick={() => toggleSource('그림영어사전')}
+                  disabled={isLoading}
+                >
+                  그림영어사전
                 </button>
               </div>
             </div>

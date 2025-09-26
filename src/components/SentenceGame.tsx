@@ -6,6 +6,15 @@ import { getAllRankings } from '../services/rankingService';
 import SupabaseSetupGuide from './SupabaseSetupGuide';
 import SupabaseDiagnostic from './SupabaseDiagnostic';
 
+type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
+// 난이도별 빈칸 개수
+const DIFFICULTY_BLANK_COUNTS = {
+  easy: 2,    // 하: 빈칸 2개
+  medium: 3,  // 중: 빈칸 3개
+  hard: -1    // 상: 제한 없음 (모든 단어를 빈칸으로)
+} as const;
+
 interface SentenceGameProps {
   words: Word[];
   onBack: () => void;
@@ -28,6 +37,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
   const [error, setError] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null);
   const sessionIdRef = useRef<string>('');
   const startTimeRef = useRef<number>(0);
 
@@ -185,7 +195,10 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
   const filteredProblems = useMemo(() => {
     if (!sentenceProblems || sentenceProblems.length === 0) return [];
     
-    // don't가 포함된 문장과 그렇지 않은 문장을 분리
+    console.log('🎯 문장 문제 필터링 시작');
+    console.log('- 전체 문장 수:', sentenceProblems.length);
+    
+    // don't가 포함된 문장과 그렇지 않은 문장을 분리 (난이도는 게임 중에 결정)
     const dontSentences = sentenceProblems.filter(p => 
       p.targetWords.some(word => word.toLowerCase() === "don't")
     );
@@ -259,21 +272,19 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     const nextIndex = currentIndex + 1;
     if (nextIndex >= totalQuestions) {
       if (questionCount === 'infinite') {
-        // 무제한 모드: 새로운 랜덤 순서로 다시 시작
-        setGameKey(prev => prev + 1); // 새로운 랜덤 순서 생성
+        setGameKey(prev => prev + 1);
         setCurrentIndex(0);
         setUserBlanks([]);
         setIsCorrect(null);
-        setQuizStartTime(Date.now()); // 새로운 세션 시작 시간 기록
+        setQuizStartTime(Date.now());
         console.log('🔄 무제한 모드: 새로운 랜덤 순서로 재시작');
       } else {
-        // 게임 완료
         setFinished(true);
-        
-        // 세션 저장 및 순위 확인
+
+        // 표준 결과 저장/신기록/순위 기록
         const endTime = Date.now();
         const durationSec = Math.round((endTime - startTimeRef.current) / 1000);
-        
+
         saveSession({
           mode: 'sentenceGame' as Mode,
           score,
@@ -281,16 +292,31 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           durationSec
         });
 
-        // 순위 확인 (sentenceGame 관련 순위만)
-        const ranking = getAllRankings().find(r => r.quizType === 'sentenceGame');
-        const records = ranking?.records || [];
-        const isNewRecord = records.length < 10 || score > records[records.length - 1].score;
-        if (isNewRecord) {
-          setShowNewRecord(true);
+        // 신기록 판정 및 기록
+        try {
+          const totalTimeMs = durationSec * 1000;
+          const accuracy = Math.round(((typeof totalQuestions === 'number' && totalQuestions > 0 ? score / totalQuestions : 0) * 100));
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { isNewRecord, createRecordFromQuizResult, addRecord } = require('../services/rankingService');
+          if (isNewRecord('sentenceGame', totalTimeMs, accuracy, questionCount || 'infinite')) {
+            const record = createRecordFromQuizResult(
+              'sentenceGame',
+              score,
+              typeof totalQuestions === 'number' ? totalQuestions : 0,
+              startTimeRef.current,
+              endTime,
+              questionCount || 'infinite'
+            );
+            addRecord(record);
+            setShowNewRecord(true);
+          } else {
+            setShowNewRecord(false);
+          }
+        } catch (e) {
+          console.warn('신기록/순위 기록 처리 중 오류(무시 가능):', e);
         }
       }
     } else {
-      // 다음 문제로
       setCurrentIndex(nextIndex);
       setUserBlanks([]);
       setIsCorrect(null);
@@ -306,16 +332,41 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     console.log('- 사용자 답안:', answer);
     console.log('- 정답 순서 (비관사):', gameSetup.nonArticleWords);
     
-    // 순차적으로 채운 답안을 정답과 비교
-    const isAnswerCorrect = answer.length === gameSetup.nonArticleWords.length && 
-      answer.every((word, index) => word.toLowerCase() === gameSetup.nonArticleWords[index].toLowerCase());
+    // 사용자 답안이 올바른 위치에 있는지 확인
+    let isAnswerCorrect = true;
+    let nonArticleCount = 0;
     
-    console.log('- 순차적 비교 결과:', answer.map((word, index) => ({
-      userWord: word,
-      correctWord: gameSetup.nonArticleWords[index],
-      isMatch: word.toLowerCase() === gameSetup.nonArticleWords[index].toLowerCase()
-    })));
-    console.log('- 최종 정답 여부:', isAnswerCorrect);
+    // correctOrder를 순회하면서 빈칸 위치의 단어가 올바른지 확인
+    for (let i = 0; i < gameSetup.correctOrder.length; i++) {
+      const word = gameSetup.correctOrder[i];
+      
+      if (!gameSetup.articleWords.includes(word)) {
+        // 빈칸 위치인 경우
+        if (nonArticleCount < answer.length) {
+          const userWord = answer[nonArticleCount];
+          if (userWord.toLowerCase() !== word.toLowerCase()) {
+            isAnswerCorrect = false;
+            console.log(`❌ 위치 ${i}에서 틀림: 사용자 "${userWord}" vs 정답 "${word}"`);
+            break;
+          }
+        } else {
+          isAnswerCorrect = false;
+          console.log(`❌ 위치 ${i}에서 답안 누락: 정답 "${word}"`);
+          break;
+        }
+        nonArticleCount++;
+      }
+    }
+    
+    // 모든 빈칸을 채웠는지 확인
+    if (isAnswerCorrect && nonArticleCount !== gameSetup.nonArticleWords.length) {
+      isAnswerCorrect = false;
+      console.log(`❌ 빈칸 개수 불일치: 채운 개수 ${nonArticleCount} vs 필요한 개수 ${gameSetup.nonArticleWords.length}`);
+    }
+    
+    console.log('- 정답 확인 결과:', isAnswerCorrect);
+    console.log('- 사용자 답안:', answer);
+    console.log('- 빈칸 단어들:', gameSetup.nonArticleWords);
     
     setIsCorrect(isAnswerCorrect);
 
@@ -382,13 +433,41 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     console.log('🎯 사용자 답안 (순차적):', userBlanks);
     console.log('🎯 정답 순서 (비관사):', gameSetup.nonArticleWords);
     
-    // 순차적으로 채운 답안을 정답과 비교
-    const isAnswerCorrect = userBlanks.length === gameSetup.nonArticleWords.length && 
-      userBlanks.every((word, index) => word.toLowerCase() === gameSetup.nonArticleWords[index].toLowerCase());
+    // 사용자 답안이 올바른 위치에 있는지 확인
+    let isAnswerCorrect = true;
+    let nonArticleCount = 0;
     
-    console.log('🎯 순차적 답안 비교 결과:', isAnswerCorrect);
+    // correctOrder를 순회하면서 빈칸 위치의 단어가 올바른지 확인
+    for (let i = 0; i < gameSetup.correctOrder.length; i++) {
+      const word = gameSetup.correctOrder[i];
+      
+      if (!gameSetup.articleWords.includes(word)) {
+        // 빈칸 위치인 경우
+        if (nonArticleCount < userBlanks.length) {
+          const userWord = userBlanks[nonArticleCount];
+          if (userWord.toLowerCase() !== word.toLowerCase()) {
+            isAnswerCorrect = false;
+            console.log(`❌ 위치 ${i}에서 틀림: 사용자 "${userWord}" vs 정답 "${word}"`);
+            break;
+          }
+        } else {
+          isAnswerCorrect = false;
+          console.log(`❌ 위치 ${i}에서 답안 누락: 정답 "${word}"`);
+          break;
+        }
+        nonArticleCount++;
+      }
+    }
+    
+    // 모든 빈칸을 채웠는지 확인
+    if (isAnswerCorrect && nonArticleCount !== gameSetup.nonArticleWords.length) {
+      isAnswerCorrect = false;
+      console.log(`❌ 빈칸 개수 불일치: 채운 개수 ${nonArticleCount} vs 필요한 개수 ${gameSetup.nonArticleWords.length}`);
+    }
+    
+    console.log('🎯 정답 확인 결과:', isAnswerCorrect);
     console.log('🎯 사용자 답안:', userBlanks);
-    console.log('🎯 정답 답안:', gameSetup.nonArticleWords);
+    console.log('🎯 빈칸 단어들:', gameSetup.nonArticleWords);
     
     // 정답 여부에 따라 다른 문장 읽기
     let sentenceToRead: string;
@@ -399,7 +478,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
       let nonArticleCount = 0;
       
       gameSetup.correctOrder.forEach(word => {
-        if (['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(word.toLowerCase())) {
+        if (gameSetup.articleWords.includes(word)) {
           fullSentence.push(word);
         } else {
           if (nonArticleCount < userBlanks.length) {
@@ -435,6 +514,12 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setQuizStartTime(Date.now());
   };
 
+  // 난이도 선택 후 게임 시작
+  const startGameWithDifficulty = (selectedDifficulty: DifficultyLevel, count: number | null | 'infinite') => {
+    setDifficulty(selectedDifficulty);
+    startGame(count);
+  };
+
   // 게임 리셋
   const resetAll = () => {
     setGameKey(prev => prev + 1);
@@ -446,6 +531,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     setUserBlanks([]);
     setIsCorrect(null);
     setShowNewRecord(false);
+    setDifficulty(null);
   };
 
   // 단어 배열 게임 로직
@@ -494,33 +580,60 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     console.log('- 재정렬된 정답 순서:', correctOrder);
     console.log('- 원본 타겟 단어들:', current.targetWords);
     
-    // 미리 채워질 단어와 선택지 단어 분리
-    const preFilledWordsList: string[] = [];
-    const nonPreFilledWords: string[] = [];
+    // 1단계: 관사와 조동사/be동사는 항상 미리 채워짐
+    const alwaysPreFilledWords: string[] = [];
+    const potentialBlankWords: string[] = [];
     
     correctOrder.forEach(word => {
       if (preFilledWords.includes(word.toLowerCase())) {
-        preFilledWordsList.push(word);
+        alwaysPreFilledWords.push(word);
       } else {
-        nonPreFilledWords.push(word);
+        potentialBlankWords.push(word);
       }
     });
     
-    console.log('- 미리 채워질 단어들:', preFilledWordsList);
-    console.log('- 선택지 단어들:', nonPreFilledWords);
+    console.log('- 항상 미리 채워질 단어들 (관사/조동사):', alwaysPreFilledWords);
+    console.log('- 빈칸 후보 단어들:', potentialBlankWords);
     
-    // 선택지 단어들만 랜덤하게 섞기 (미리 채워질 단어는 제외)
-    const shuffledWords = [...nonPreFilledWords].sort(() => Math.random() - 0.5);
+    // 2단계: 난이도에 따라 빈칸 개수 결정
+    let targetBlankCount: number;
+    if (difficulty === 'easy') {
+      targetBlankCount = Math.min(2, potentialBlankWords.length);
+    } else if (difficulty === 'medium') {
+      targetBlankCount = Math.min(3, potentialBlankWords.length);
+    } else { // hard
+      targetBlankCount = potentialBlankWords.length; // 모든 단어를 빈칸으로
+    }
     
-    console.log('- 섞인 단어들:', shuffledWords);
+    console.log('- 선택된 난이도:', difficulty);
+    console.log('- 목표 빈칸 개수:', targetBlankCount);
+    
+    // 3단계: 빈칸으로 만들 단어와 미리 채워질 단어 분리 (랜덤 선택)
+    // potentialBlankWords를 랜덤하게 섞기
+    const shuffledPotentialWords = [...potentialBlankWords].sort(() => Math.random() - 0.5);
+    
+    const blankWords = shuffledPotentialWords.slice(0, targetBlankCount);
+    const additionalPreFilledWords = shuffledPotentialWords.slice(targetBlankCount);
+    
+    console.log('- 빈칸으로 만들 단어들:', blankWords);
+    console.log('- 추가로 미리 채워질 단어들:', additionalPreFilledWords);
+    
+    // 4단계: 최종 미리 채워질 단어들 (관사/조동사 + 추가 단어들)
+    const finalPreFilledWords = [...alwaysPreFilledWords, ...additionalPreFilledWords];
+    
+    // 5단계: 빈칸 단어들은 이미 랜덤하게 선택되었으므로 그대로 사용
+    const shuffledWords = blankWords;
+    
+    console.log('- 최종 미리 채워질 단어들:', finalPreFilledWords);
+    console.log('- 선택된 빈칸 단어들:', shuffledWords);
     
     return {
       correctOrder,
       shuffledWords,
-      articleWords: preFilledWordsList,
-      nonArticleWords: nonPreFilledWords
+      articleWords: finalPreFilledWords,
+      nonArticleWords: blankWords
     };
-  }, [current]);
+  }, [current, difficulty]);
 
   // 진단 도구 표시
   if (showDiagnostic) {
@@ -647,11 +760,114 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
     );
   }
 
-  if (!gameStarted) {
+  // 난이도 선택 화면
+  if (!difficulty) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>📖 영어 문장 만들기</h2>
         <p>총 {sentenceProblems?.length || 0}개의 문장 문제가 있습니다.</p>
+        <p>난이도를 선택하세요:</p>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr 1fr', 
+          gap: '20px', 
+          maxWidth: '600px', 
+          margin: '20px auto' 
+        }}>
+          <button
+            onClick={() => setDifficulty('easy')}
+            style={{
+              padding: '30px 20px',
+              fontSize: '18px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            🟢 하 (쉬움)
+            <div style={{ fontSize: '14px', marginTop: '5px', opacity: 0.9 }}>
+              빈칸 2개<br/>관사는 미리 채워짐
+            </div>
+          </button>
+          <button
+            onClick={() => setDifficulty('medium')}
+            style={{
+              padding: '30px 20px',
+              fontSize: '18px',
+              backgroundColor: '#FF9800',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            🟡 중 (보통)
+            <div style={{ fontSize: '14px', marginTop: '5px', opacity: 0.9 }}>
+              빈칸 3개<br/>관사는 미리 채워짐
+            </div>
+          </button>
+          <button
+            onClick={() => setDifficulty('hard')}
+            style={{
+              padding: '30px 20px',
+              fontSize: '18px',
+              backgroundColor: '#F44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            🔴 상 (어려움)
+            <div style={{ fontSize: '14px', marginTop: '5px', opacity: 0.9 }}>
+              빈칸 제한 없음<br/>관사는 미리 채워짐
+            </div>
+          </button>
+        </div>
+        <button
+          onClick={onBack}
+          style={{
+            marginTop: '20px',
+            padding: '10px 20px',
+            fontSize: '16px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer'
+          }}
+        >
+          ← 뒤로가기
+        </button>
+      </div>
+    );
+  }
+
+  if (!gameStarted) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <h2>📖 영어 문장 만들기</h2>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          gap: '10px',
+          marginBottom: '20px'
+        }}>
+          <span style={{ 
+            fontSize: '18px', 
+            fontWeight: 'bold',
+            color: difficulty === 'easy' ? '#4CAF50' : difficulty === 'medium' ? '#FF9800' : '#F44336'
+          }}>
+            {difficulty === 'easy' ? '🟢 하급' : difficulty === 'medium' ? '🟡 중급' : '🔴 상급'}
+          </span>
+        </div>
+        <p>총 {filteredProblems?.length || 0}개의 문장 문제가 있습니다.</p>
         <p>문제 수를 선택하세요:</p>
         <div style={{ 
           display: 'grid', 
@@ -661,55 +877,55 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           margin: '20px auto' 
         }}>
           <button
-            onClick={() => startGame(10)}
-            disabled={(sentenceProblems?.length || 0) < 10}
+            onClick={() => startGameWithDifficulty(difficulty, 10)}
+            disabled={(filteredProblems?.length || 0) < 10}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
-              backgroundColor: (sentenceProblems?.length || 0) < 10 ? '#ccc' : '#4CAF50',
+              backgroundColor: (filteredProblems?.length || 0) < 10 ? '#ccc' : '#4CAF50',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: (sentenceProblems?.length || 0) < 10 ? 'not-allowed' : 'pointer',
+              cursor: (filteredProblems?.length || 0) < 10 ? 'not-allowed' : 'pointer',
               fontWeight: 'bold'
             }}
           >
             10문제
           </button>
           <button
-            onClick={() => startGame(20)}
-            disabled={(sentenceProblems?.length || 0) < 20}
+            onClick={() => startGameWithDifficulty(difficulty, 20)}
+            disabled={(filteredProblems?.length || 0) < 20}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
-              backgroundColor: (sentenceProblems?.length || 0) < 20 ? '#ccc' : '#2196F3',
+              backgroundColor: (filteredProblems?.length || 0) < 20 ? '#ccc' : '#2196F3',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: (sentenceProblems?.length || 0) < 20 ? 'not-allowed' : 'pointer',
+              cursor: (filteredProblems?.length || 0) < 20 ? 'not-allowed' : 'pointer',
               fontWeight: 'bold'
             }}
           >
             20문제
           </button>
           <button
-            onClick={() => startGame(30)}
-            disabled={(sentenceProblems?.length || 0) < 30}
+            onClick={() => startGameWithDifficulty(difficulty, 30)}
+            disabled={(filteredProblems?.length || 0) < 30}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
-              backgroundColor: (sentenceProblems?.length || 0) < 30 ? '#ccc' : '#FF9800',
+              backgroundColor: (filteredProblems?.length || 0) < 30 ? '#ccc' : '#FF9800',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              cursor: (sentenceProblems?.length || 0) < 30 ? 'not-allowed' : 'pointer',
+              cursor: (filteredProblems?.length || 0) < 30 ? 'not-allowed' : 'pointer',
               fontWeight: 'bold'
             }}
           >
             30문제
           </button>
           <button
-            onClick={() => startGame(null)}
+            onClick={() => startGameWithDifficulty(difficulty, null)}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
@@ -724,7 +940,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
             전체 문제
           </button>
           <button
-            onClick={() => startGame('infinite' as any)}
+            onClick={() => startGameWithDifficulty(difficulty, 'infinite' as any)}
             style={{
               padding: '30px 20px',
               fontSize: '18px',
@@ -761,75 +977,107 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
   if (finished) {
     const accuracy = Math.round((score / totalQuestions) * 100);
     const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-    
-    const getComment = (accuracy: number) => {
-      if (accuracy === 100) return "완벽해요! 🎉";
-      if (accuracy >= 80) return "훌륭해요! 👏";
-      if (accuracy >= 60) return "잘했어요! 😊";
-      return "다시 도전해보세요! 💪";
-    };
 
     return (
-      <div style={{ padding: '20px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <h2>📖 영어 문장 만들기 완료!</h2>
+      <div style={{ textAlign: 'center', marginTop: 20 }}>
+        <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
         
         {showNewRecord && (
           <div style={{
-            backgroundColor: '#FFD700',
-            color: '#000',
+            backgroundColor: '#fff3cd', 
+            border: '2px solid #ffc107', 
+            borderRadius: '12px', 
             padding: '15px',
-            borderRadius: '10px',
-            margin: '20px 0',
-            fontWeight: 'bold',
-            fontSize: '18px',
+            margin: '10px 0',
+            color: '#856404',
             animation: 'pulse 2s infinite'
           }}>
-            🏆 신기록 달성! 🏆
+            🏆 신기록 달성! 순위에 기록되었습니다!
           </div>
         )}
         
+        {/* 점수 표시 */}
         <div style={{
-          backgroundColor: '#f5f5f5',
-          padding: '30px',
-          borderRadius: '15px',
-          margin: '20px 0'
+          fontSize: 36, 
+          fontWeight: 800, 
+          color: '#2196F3', 
+          margin: '20px 0',
+          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <h3>📊 결과</h3>
-          <div style={{ fontSize: '24px', margin: '15px 0' }}>
-            <div>점수: <strong>{score}/{totalQuestions}</strong></div>
-            <div>정확도: <strong>{accuracy}%</strong></div>
-            <div>총 시간: <strong>{Math.floor(durationSec / 60)}분 {durationSec % 60}초</strong></div>
+          {score} / {totalQuestions}
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1976d2' }}>
-            {getComment(accuracy)}
+
+        {/* 정답률과 시간 표시 */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '30px', 
+          margin: '20px 0',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ 
+            backgroundColor: '#e3f2fd', 
+            padding: '15px 25px', 
+            borderRadius: '12px',
+            border: '2px solid #2196F3' 
+          }}>
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>정답률</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+              {accuracy}%
+            </div>
+          </div>
+          <div style={{ 
+            backgroundColor: '#f3e5f5', 
+            padding: '15px 25px', 
+            borderRadius: '12px',
+            border: '2px solid #9c27b0' 
+          }}>
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>풀이 시간</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7b1fa2' }}>
+              {durationSec}초
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* 코멘트 */}
+        <div style={{ 
+          backgroundColor: accuracy === 100 ? '#d4edda' : accuracy >= 80 ? '#e2e3e5' : accuracy >= 60 ? '#f8d7da' : '#f5c6cb',
+          color: accuracy === 100 ? '#155724' : accuracy >= 80 ? '#383d41' : '#721c24',
+          padding: '20px', 
+          borderRadius: '12px', 
+          margin: '20px 0',
+          border: '2px solid #ddd' 
+        }}>
+          {accuracy === 100 ? '🎉 완벽합니다!' : accuracy >= 80 ? '👍 좋은 성과입니다!' : accuracy >= 60 ? '🙂 괜찮습니다!' : '💪 다시 도전해보세요!'}
+        </div>
+
+        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '30px', flexWrap: 'wrap' }}>
           <button
             onClick={resetAll}
             style={{
-              padding: '12px 24px',
-              fontSize: '16px',
+              padding: '15px 30px',
+              fontSize: '18px',
               backgroundColor: '#4CAF50',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer'
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
             }}
           >
-            다시 하기
+            다시 도전
           </button>
           <button
             onClick={onBack}
             style={{
-              padding: '12px 24px',
-              fontSize: '16px',
-              backgroundColor: '#757575',
+              padding: '15px 30px',
+              fontSize: '18px',
+              backgroundColor: '#6c757d',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer'
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
             }}
           >
             메인으로
@@ -868,6 +1116,13 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
         margin: '20px 0'
       }}>
         <div>문제 {currentIndex + 1}/{totalQuestions}</div>
+        <div style={{ 
+          fontSize: '16px', 
+          fontWeight: 'bold',
+          color: difficulty === 'easy' ? '#4CAF50' : difficulty === 'medium' ? '#FF9800' : '#F44336'
+        }}>
+          {difficulty === 'easy' ? '🟢 하급' : difficulty === 'medium' ? '🟡 중급' : '🔴 상급'}
+        </div>
         <div>점수: {score}</div>
         <div>출처: {current?.source}</div>
       </div>
@@ -903,7 +1158,8 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
       }}>
         {/* 전체 문장 순서대로 표시 (순차적 채우기) */}
         {gameSetup?.correctOrder.map((word, index) => {
-          const isPreFilled = ['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(word.toLowerCase());
+          // gameSetup에서 계산된 미리 채워질 단어들 사용
+          const isPreFilled = gameSetup.articleWords.includes(word);
           
           if (isPreFilled) {
             // 관사 및 조동사/be동사는 미리 채워진 상태로 표시
@@ -936,7 +1192,7 @@ const SentenceGame: React.FC<SentenceGameProps> = ({ words, onBack }) => {
           // 현재 단어까지의 비관사 단어 개수를 세기
           for (let i = 0; i <= index; i++) {
             const currentWord = gameSetup.correctOrder[i];
-            if (!['a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(currentWord.toLowerCase())) {
+            if (!gameSetup.articleWords.includes(currentWord)) {
               if (i === index) {
                 nonArticleIndex = currentNonArticleCount;
               }

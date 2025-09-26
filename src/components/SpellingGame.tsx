@@ -353,6 +353,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
       const finalScore = scoreRef.current;
       const accuracy = Math.round((finalScore / questions.length) * 100);
       const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
+      const totalTimeMs = durationSec * 1000;
       
       console.log('철자 게임 완료 - 순위 기록 확인:', {
         score: finalScore,
@@ -361,27 +362,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
         questionCount: questionCount || 'infinite'
       });
       
-      if (accuracy === 100) {
-        const record = createRecordFromQuizResult(
-          'spellingGame',
-          finalScore,
-          questions.length,
-          quizStartTime,
-          Date.now(),
-          questionCount || 'infinite'
-        );
-        
-        const isNewRecordResult = isNewRecord('spellingGame', accuracy, durationSec, questionCount || 'infinite');
-        console.log('신기록 여부:', isNewRecordResult);
-        
-        if (isNewRecordResult) {
-          addRecord(record);
-          setShowNewRecord(true);
-          playRecordSound();
-          console.log('새로운 기록이 추가되었습니다!');
-        }
-      }
-      
+      // 표준: 세션 저장
       saveSession({
         sessionIdHint: sessionId,
         mode: 'spellingGame',
@@ -389,6 +370,30 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
         total: questions.length,
         durationSec
       });
+      
+      // 표준: 신기록 판정 및 기록 (정확도 100% 조건 제거)
+      try {
+        const isNewRecordResult = isNewRecord('spellingGame', totalTimeMs, accuracy, questionCount || 'infinite');
+        console.log('신기록 여부:', isNewRecordResult);
+        if (isNewRecordResult) {
+          const record = createRecordFromQuizResult(
+            'spellingGame',
+            finalScore,
+            questions.length,
+            quizStartTime,
+            Date.now(),
+            questionCount || 'infinite'
+          );
+          addRecord(record);
+          setShowNewRecord(true);
+          playRecordSound();
+          console.log('새로운 기록이 추가되었습니다!');
+        } else {
+          setShowNewRecord(false);
+        }
+      } catch (e) {
+        console.warn('신기록 처리 중 오류(무시 가능):', e);
+      }
       
       setFinished(true);
       
@@ -517,77 +522,81 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
   if (finished) {
     const accuracy = Math.round((scoreRef.current / questions.length) * 100);
     const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-    const minutes = Math.floor(durationSec / 60);
-    const seconds = durationSec % 60;
-    
-    let comment = '';
-    if (accuracy === 100) comment = '🎉 완벽합니다!';
-    else if (accuracy >= 90) comment = '😊 훌륭해요!';
-    else if (accuracy >= 80) comment = '👍 잘했어요!';
-    else if (accuracy >= 70) comment = '🙂 괜찮아요!';
-    else if (accuracy >= 60) comment = '😐 더 노력해요!';
-    else comment = '😅 다시 도전해보세요!';
 
     return (
-      <div className="quiz-container">
+      <div className="quiz-container" style={{ textAlign: 'center', marginTop: 20 }}>
+        <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
+
         {showNewRecord && (
           <div className="new-record-notification" style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-            color: '#333',
-            padding: '15px 30px',
-            borderRadius: '25px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            zIndex: 1000,
-            boxShadow: '0 8px 25px rgba(255,215,0,0.4)',
+            backgroundColor: '#fff3cd',
+            border: '2px solid #ffc107',
+            borderRadius: '12px',
+            padding: '15px',
+            margin: '10px 0',
+            color: '#856404',
             animation: 'pulse 2s infinite'
           }}>
-            🏆 새로운 기록 달성! 🏆
+            🏆 신기록 달성! 순위에 기록되었습니다!
           </div>
         )}
-        
-        <div className="quiz-header">
-          <h2>🔤 철자 조합 게임 완료!</h2>
+
+        {/* 점수 표시 */}
+        <div style={{ 
+          fontSize: 36, 
+          fontWeight: 800, 
+          color: '#2196F3', 
+          margin: '20px 0',
+          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          {scoreRef.current} / {questions.length}
+        </div>
+
+        {/* 정답률과 시간 표시 */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '30px', 
+          margin: '20px 0',
+          flexWrap: 'wrap'
+        }}>
           <div style={{ 
-            fontSize: '48px', 
-            margin: '20px 0',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontWeight: 'bold'
+            backgroundColor: '#e3f2fd', 
+            padding: '15px 25px', 
+            borderRadius: '12px',
+            border: '2px solid #2196F3'
           }}>
-            {scoreRef.current}/{questions.length}
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>정답률</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+              {accuracy}%
+            </div>
           </div>
           <div style={{ 
-            fontSize: '24px', 
-            color: accuracy >= 80 ? '#4CAF50' : accuracy >= 60 ? '#FF9800' : '#f44336',
-            fontWeight: 'bold',
-            marginBottom: '10px'
+            backgroundColor: '#f3e5f5', 
+            padding: '15px 25px', 
+            borderRadius: '12px',
+            border: '2px solid #9c27b0'
           }}>
-            정답률: {accuracy}%
-          </div>
-          <div style={{ 
-            fontSize: '18px', 
-            color: '#666',
-            marginBottom: '15px'
-          }}>
-            소요 시간: {minutes > 0 ? `${minutes}분 ` : ''}{seconds}초
-          </div>
-          <div style={{ 
-            fontSize: '20px', 
-            fontWeight: 'bold',
-            color: '#333',
-            marginBottom: '30px'
-          }}>
-            {comment}
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>풀이 시간</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7b1fa2' }}>
+              {durationSec}초
+            </div>
           </div>
         </div>
-        
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+
+        {/* 코멘트 */}
+        <div style={{ 
+          backgroundColor: accuracy === 100 ? '#d4edda' : accuracy >= 80 ? '#e2e3e5' : accuracy >= 60 ? '#f8d7da' : '#f5c6cb',
+          color: accuracy === 100 ? '#155724' : accuracy >= 80 ? '#383d41' : '#721c24',
+          padding: '20px', 
+          borderRadius: '12px', 
+          margin: '20px 0',
+          border: '2px solid #ddd'
+        }}>
+          {accuracy === 100 ? '🎉 완벽합니다!' : accuracy >= 80 ? '👍 좋은 성과입니다!' : accuracy >= 60 ? '🙂 괜찮습니다!' : '💪 다시 도전해보세요!'}
+        </div>
+
+        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '30px', flexWrap: 'wrap' }}>
           <button
             onClick={() => {
               setQuestions(pickRandom(words, questionCount || 50));
@@ -605,13 +614,11 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
               border: 'none',
               borderRadius: '10px',
               cursor: 'pointer',
-              marginRight: '15px',
               fontWeight: 'bold'
             }}
           >
             다시 도전
           </button>
-          
           <button
             onClick={() => {
               setQuestionCount(null);
@@ -630,13 +637,11 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onBack }) => {
               border: 'none',
               borderRadius: '10px',
               cursor: 'pointer',
-              marginRight: '15px',
               fontWeight: 'bold'
             }}
           >
             새 게임
           </button>
-          
           <button
             onClick={onBack}
             style={{

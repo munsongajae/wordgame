@@ -56,28 +56,19 @@ function createBlanks(word: string, difficulty: DifficultyLevel): BlankInfo[] {
       break;
   }
   
-  // 가능한 위치들 (첫 글자와 마지막 글자는 제외)
+  // 가능한 위치들 (모든 글자 포함 - 그림으로 의미 파악 가능)
   const possiblePositions = [];
-  for (let i = 1; i < wordLength - 1; i++) {
+  for (let i = 0; i < wordLength; i++) {
     possiblePositions.push(i);
-  }
-  
-  // 단어가 너무 짧으면 첫 글자나 마지막 글자도 포함
-  if (possiblePositions.length < blankCount) {
-    for (let i = 0; i < wordLength; i++) {
-      if (!possiblePositions.includes(i)) {
-        possiblePositions.push(i);
-      }
-    }
   }
   
   let selectedPositions: number[];
   
   if (useSequential) {
-    // 순서대로: 앞에서부터 선택
-    selectedPositions = possiblePositions.slice(0, blankCount);
+    // 순서대로 채우되, 빈칸 위치 선택은 랜덤으로 하고 화면/채우기 순서는 좌→우로 정렬
+    selectedPositions = pickRandom(possiblePositions, blankCount).sort((a, b) => a - b);
   } else {
-    // 랜덤: 기존 로직 사용
+    // 랜덤: 기존 로직 사용 (위치 선택과 순서 모두 랜덤)
     selectedPositions = pickRandom(possiblePositions, blankCount);
   }
   
@@ -410,6 +401,26 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
     }
   };
 
+  // 빈칸 클릭 시 선택 철회 (해당 칸의 글자 제거 후 그 칸으로 이동)
+  const handleBlankClick = (blankIdx: number) => {
+    if (isCorrect !== null || finished) return;
+    const targetBlank = blanks[blankIdx];
+    if (!targetBlank || !targetBlank.userAnswer) return; // 비어있으면 무시
+
+    const newBlanks = [...blanks];
+    newBlanks[blankIdx] = { ...targetBlank, userAnswer: null };
+    setBlanks(newBlanks);
+    setCurrentBlankIndex(blankIdx);
+
+    // 해당 빈칸의 선택지 재생성
+    const nextCorrectLetter = newBlanks[blankIdx].correctLetter;
+    const allCorrectLetters = newBlanks.map(blank => blank.correctLetter);
+    const wrongOptions = generateWrongOptions(allCorrectLetters, words);
+    const selectedWrongOptions = wrongOptions.slice(0, NUM_OPTIONS - 1);
+    const allOptions = [nextCorrectLetter, ...selectedWrongOptions];
+    setOptions(shuffleArray(allOptions));
+  };
+
   // 정답 확인 버튼 핸들러
   const handleCheckAnswer = () => {
     if (isCorrect !== null || !current) return;
@@ -451,25 +462,28 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
         questionCount: questionCount || 'infinite'
       });
       
-      if (accuracy === 100) {
-        const record = createRecordFromQuizResult(
-          'fillBlankGame',
-          finalScore,
-          questions.length,
-          quizStartTime,
-          Date.now(),
-          questionCount || 'infinite'
-        );
-        
-        const isNewRecordResult = isNewRecord('fillBlankGame', accuracy, durationSec, questionCount || 'infinite');
-        console.log('신기록 여부:', isNewRecordResult);
-        
+      // 신기록 처리 표준화
+      const totalTimeMs = durationSec * 1000;
+      try {
+        const isNewRecordResult = isNewRecord('fillBlankGame', totalTimeMs, accuracy, questionCount || 'infinite');
         if (isNewRecordResult) {
+          const record = createRecordFromQuizResult(
+            'fillBlankGame',
+            finalScore,
+            questions.length,
+            quizStartTime,
+            Date.now(),
+            questionCount || 'infinite'
+          );
           addRecord(record);
           setShowNewRecord(true);
           playRecordSound();
           console.log('새로운 기록이 추가되었습니다!');
+        } else {
+          setShowNewRecord(false);
         }
+      } catch (e) {
+        console.warn('신기록 처리 중 오류(무시 가능):', e);
       }
       
       saveSession({
@@ -528,7 +542,12 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
                   fontWeight: 'bold',
                   backgroundColor: isCurrentBlank ? '#FFF3E0' : (blank.userAnswer ? '#E3F2FD' : '#ffffff'),
                   color: blank.userAnswer ? '#1976D2' : '#666',
-                  animation: isCurrentBlank ? 'pulse 1s infinite' : 'none'
+                  animation: isCurrentBlank ? 'pulse 1s infinite' : 'none',
+                  cursor: blank.userAnswer ? 'pointer' : 'default'
+                }}
+                title={blank.userAnswer ? '클릭하여 선택 취소' : ''}
+                onClick={() => {
+                  if (blank.userAnswer) handleBlankClick(blankIndex);
                 }}
               >
                 {blank.userAnswer || ''}
@@ -817,77 +836,81 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
   if (finished) {
     const accuracy = Math.round((scoreRef.current / questions.length) * 100);
     const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-    const minutes = Math.floor(durationSec / 60);
-    const seconds = durationSec % 60;
-    
-    let comment = '';
-    if (accuracy === 100) comment = '🎉 완벽합니다!';
-    else if (accuracy >= 90) comment = '😊 훌륭해요!';
-    else if (accuracy >= 80) comment = '👍 잘했어요!';
-    else if (accuracy >= 70) comment = '🙂 괜찮아요!';
-    else if (accuracy >= 60) comment = '😐 더 노력해요!';
-    else comment = '😅 다시 도전해보세요!';
 
     return (
-      <div className="quiz-container">
+      <div className="quiz-container" style={{ textAlign: 'center', marginTop: 20 }}>
+        <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
+        
         {showNewRecord && (
-          <div className="new-record-notification" style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-            color: '#333',
-            padding: '15px 30px',
-            borderRadius: '25px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            zIndex: 1000,
-            boxShadow: '0 8px 25px rgba(255,215,0,0.4)',
-            animation: 'pulse 2s infinite'
+          <div className="new-record-notification" style={{ 
+            backgroundColor: '#fff3cd', 
+            border: '2px solid #ffc107', 
+            borderRadius: '12px', 
+            padding: '15px', 
+            margin: '10px 0',
+            color: '#856404',
+            animation: 'pulse 2s infinite' 
           }}>
-            🏆 새로운 기록 달성! 🏆
+            🏆 신기록 달성! 순위에 기록되었습니다!
           </div>
         )}
-        
-        <div className="quiz-header">
-          <h2>📝 빈칸 채우기 게임 완료!</h2>
+
+        {/* 점수 표시 */}
+        <div style={{ 
+          fontSize: 36, 
+          fontWeight: 800, 
+          color: '#2196F3', 
+          margin: '20px 0',
+          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          {scoreRef.current} / {questions.length}
+        </div>
+
+        {/* 정답률과 시간 표시 */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '30px', 
+          margin: '20px 0',
+          flexWrap: 'wrap'
+        }}>
           <div style={{ 
-            fontSize: '48px', 
-            margin: '20px 0',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontWeight: 'bold'
+            backgroundColor: '#e3f2fd', 
+            padding: '15px 25px', 
+            borderRadius: '12px',
+            border: '2px solid #2196F3' 
           }}>
-            {scoreRef.current}/{questions.length}
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>정답률</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+              {accuracy}%
+            </div>
           </div>
           <div style={{ 
-            fontSize: '24px', 
-            color: accuracy >= 80 ? '#4CAF50' : accuracy >= 60 ? '#FF9800' : '#f44336',
-            fontWeight: 'bold',
-            marginBottom: '10px'
+            backgroundColor: '#f3e5f5', 
+            padding: '15px 25px', 
+            borderRadius: '12px',
+            border: '2px solid #9c27b0' 
           }}>
-            정답률: {accuracy}%
-          </div>
-          <div style={{ 
-            fontSize: '18px', 
-            color: '#666',
-            marginBottom: '15px'
-          }}>
-            소요 시간: {minutes > 0 ? `${minutes}분 ` : ''}{seconds}초
-          </div>
-          <div style={{ 
-            fontSize: '20px', 
-            fontWeight: 'bold',
-            color: '#333',
-            marginBottom: '30px'
-          }}>
-            {comment}
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>풀이 시간</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7b1fa2' }}>
+              {durationSec}초
+            </div>
           </div>
         </div>
-        
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+
+        {/* 코멘트 */}
+        <div style={{ 
+          backgroundColor: accuracy === 100 ? '#d4edda' : accuracy >= 80 ? '#e2e3e5' : accuracy >= 60 ? '#f8d7da' : '#f5c6cb',
+          color: accuracy === 100 ? '#155724' : accuracy >= 80 ? '#383d41' : '#721c24',
+          padding: '20px', 
+          borderRadius: '12px', 
+          margin: '20px 0',
+          border: '2px solid #ddd' 
+        }}>
+          {accuracy === 100 ? '🎉 완벽합니다!' : accuracy >= 80 ? '👍 좋은 성과입니다!' : accuracy >= 60 ? '🙂 괜찮습니다!' : '💪 다시 도전해보세요!'}
+        </div>
+
+        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '30px', flexWrap: 'wrap' }}>
           <button
             onClick={() => {
               setQuestions(pickRandom(words, questionCount || 50));
@@ -905,13 +928,11 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
               border: 'none',
               borderRadius: '10px',
               cursor: 'pointer',
-              marginRight: '15px',
               fontWeight: 'bold'
             }}
           >
             다시 도전
           </button>
-          
           <button
             onClick={() => {
               setQuestionCount(null);
@@ -931,13 +952,11 @@ const FillBlankGame: React.FC<FillBlankGameProps> = ({ words, onBack }) => {
               border: 'none',
               borderRadius: '10px',
               cursor: 'pointer',
-              marginRight: '15px',
               fontWeight: 'bold'
             }}
           >
             새 게임
           </button>
-          
           <button
             onClick={onBack}
             style={{

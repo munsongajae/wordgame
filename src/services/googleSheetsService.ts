@@ -4,6 +4,77 @@ import { Word, SentenceProblem } from '../types/word';
 export class GoogleSheetsService {
   private static readonly SHEET_ID = process.env.REACT_APP_GOOGLE_SHEET_ID || '';
   private static readonly API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || '';
+  private static readonly CACHE_KEY = 'google_sheets_words_cache';
+  private static readonly CACHE_TIME_KEY = 'google_sheets_words_cache_time';
+  private static readonly CACHE_DURATION = 60 * 60 * 1000; // 1시간 (밀리초)
+
+  // 캐시에서 단어 가져오기
+  static getWordsFromCache(): Word[] | null {
+    try {
+      const cached = localStorage.getItem(this.CACHE_KEY);
+      const cacheTime = localStorage.getItem(this.CACHE_TIME_KEY);
+      
+      if (!cached || !cacheTime) {
+        console.log('📦 캐시 없음');
+        return null;
+      }
+
+      const now = Date.now();
+      const age = now - parseInt(cacheTime);
+      
+      if (age > this.CACHE_DURATION) {
+        console.log(`⏰ 캐시 만료됨 (${Math.round(age / 1000 / 60)}분 경과)`);
+        this.clearCache();
+        return null;
+      }
+
+      const words = JSON.parse(cached) as Word[];
+      console.log(`✅ 캐시에서 ${words.length}개 단어 로드 (${Math.round(age / 1000 / 60)}분 전 캐시)`);
+      return words;
+    } catch (error) {
+      console.error('❌ 캐시 읽기 실패:', error);
+      this.clearCache();
+      return null;
+    }
+  }
+
+  // 캐시에 단어 저장
+  static saveWordsToCache(words: Word[]): void {
+    try {
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify(words));
+      localStorage.setItem(this.CACHE_TIME_KEY, Date.now().toString());
+      console.log(`💾 ${words.length}개 단어를 캐시에 저장`);
+    } catch (error) {
+      console.error('❌ 캐시 저장 실패:', error);
+    }
+  }
+
+  // 캐시 삭제
+  static clearCache(): void {
+    localStorage.removeItem(this.CACHE_KEY);
+    localStorage.removeItem(this.CACHE_TIME_KEY);
+    console.log('🗑️ 캐시 삭제됨');
+  }
+
+  // 캐시를 사용하는 fetchWords (기본 메서드)
+  static async fetchWordsWithCache(forceRefresh: boolean = false): Promise<Word[]> {
+    // 강제 새로고침이 아니면 캐시 확인
+    if (!forceRefresh) {
+      const cached = this.getWordsFromCache();
+      if (cached) {
+        return cached;
+      }
+    }
+
+    console.log('🌐 Google Sheets에서 새로운 데이터 가져오기...');
+    const words = await this.fetchWords();
+    
+    if (words.length > 0) {
+      this.saveWordsToCache(words);
+    }
+    
+    return words;
+  }
 
   static async fetchSentenceProblems(): Promise<SentenceProblem[]> {
     console.log('🔍 구글 시트 시트2번 문장 문제 데이터 로드 시작...');

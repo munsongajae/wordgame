@@ -34,9 +34,9 @@ export default function Dashboard({ onBack }: DashboardProps) {
       try {
         setLoading(true);
         setError(null);
-        // 단어 사전 로드(구글 시트)
+        // 단어 사전 로드(구글 시트 - 캐시 우선)
         try {
-          const fetched = await GoogleSheetsService.fetchWords();
+          const fetched = await GoogleSheetsService.fetchWordsWithCache();
           const dict = new Map<string, Word>();
           fetched.forEach(w => dict.set(w.id, w));
           setWordDict(dict);

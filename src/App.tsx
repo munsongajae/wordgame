@@ -12,13 +12,14 @@ import SpellingGame from './components/SpellingGame';
 import FillBlankGame from './components/FillBlankGame';
 import SentenceGame from './components/SentenceGame';
 import Ranking from './components/Ranking';
+import BossRaid from './components/BossRaid';
 import { Word } from './types/word';
 import { GoogleSheetsService } from './services/googleSheetsService';
 import './App.css';
 import { getCurrentUserName, setCurrentUserByName } from './services/supabaseClient';
 
 type AppMode = 'sourceSelection' | 'wordList' | 'pronunciation' | 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz';
-type AppModeExtended = AppMode | 'dashboard' | 'userSelection' | 'combinedQuiz' | 'ranking' | 'fallingQuiz' | 'listeningQuiz' | 'spellingGame' | 'fillBlankGame' | 'sentenceGame' | 'categoryBasic' | 'categoryQuiz' | 'categoryGame' | 'categoryCombined';
+type AppModeExtended = AppMode | 'dashboard' | 'userSelection' | 'combinedQuiz' | 'ranking' | 'fallingQuiz' | 'listeningQuiz' | 'spellingGame' | 'fillBlankGame' | 'sentenceGame' | 'categoryBasic' | 'categoryQuiz' | 'categoryGame' | 'categoryCombined' | 'bossRaid';
 
 function App() {
   const [words, setWords] = useState<Word[]>([]);
@@ -33,11 +34,33 @@ function App() {
   const [ttsGender, setTtsGender] = useState<'default' | 'male' | 'female'>('default');
   const [ttsAccent, setTtsAccent] = useState<'us' | 'uk'>('us');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<string>('');
 
   // 앱 시작 시 전체 데이터 자동 로드
   useEffect(() => {
     loadWords(['전체']);
+    updateCacheInfo();
   }, []);
+
+  // 캐시 정보 업데이트
+  const updateCacheInfo = () => {
+    try {
+      const cacheTime = localStorage.getItem('google_sheets_words_cache_time');
+      if (cacheTime) {
+        const age = Date.now() - parseInt(cacheTime);
+        const minutes = Math.round(age / 1000 / 60);
+        if (minutes < 60) {
+          setCacheInfo(`💾 캐시: ${minutes}분 전`);
+        } else {
+          setCacheInfo(`💾 캐시: ${Math.round(minutes / 60)}시간 전`);
+        }
+      } else {
+        setCacheInfo('');
+      }
+    } catch {
+      setCacheInfo('');
+    }
+  };
 
   // 전역 TTS 설정 로드
   useEffect(() => {
@@ -88,7 +111,7 @@ function App() {
     await loadWords(newSources);
   };
 
-  const loadWords = async (sources?: string[] | string) => {
+  const loadWords = async (sources?: string[] | string, forceRefresh: boolean = false) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -99,7 +122,8 @@ function App() {
       console.log('🔍 환경 변수 확인:', {
         sheetId: sheetId || '설정되지 않음',
         hasEnvFile: !!sheetId,
-        selectedSources: sourcesArray
+        selectedSources: sourcesArray,
+        forceRefresh
       });
       
       if (!sheetId) {
@@ -107,7 +131,8 @@ function App() {
         return;
       }
       
-      const fetchedWords = await GoogleSheetsService.fetchWords();
+      // 캐시를 사용하여 단어 가져오기
+      const fetchedWords = await GoogleSheetsService.fetchWordsWithCache(forceRefresh);
       
       // 구글 시트에서 데이터를 성공적으로 가져왔는지 확인
       if (fetchedWords.length > 0) {
@@ -135,6 +160,7 @@ function App() {
         
         console.log(`✅ 구글 시트에서 단어 로드 성공: ${filteredWords.length}개 (전체: ${fetchedWords.length}개, 선택된 교재: ${sourcesArray.join(', ')})`);
         setWords(filteredWords);
+        updateCacheInfo();
         // 카테고리 화면을 유지하기 위해 모드 변경 제거
       } else {
         console.warn('⚠️ 구글 시트에 데이터가 없습니다. 샘플 데이터를 사용합니다.');
@@ -268,10 +294,18 @@ function App() {
 
   const handleRetry = () => {
     if (selectedSources.length > 0) {
-      loadWords(selectedSources);
+      loadWords(selectedSources, true); // 강제 새로고침
     } else {
       setMode('sourceSelection');
     }
+  };
+
+  // 캐시 강제 새로고침 함수
+  const handleForceRefresh = async () => {
+    console.log('🔄 강제 새로고침 시작...');
+    GoogleSheetsService.clearCache();
+    await loadWords(selectedSources, true);
+    updateCacheInfo();
   };
 
   // 로딩 중이거나 에러가 있을 때는 메인 화면에서 처리
@@ -308,6 +342,15 @@ function App() {
                 </div>
               <button className="back-to-source-button" onClick={() => setMode('dashboard')}>📊 내 점수</button>
               <button className="back-to-source-button" onClick={() => setMode('ranking')} style={{ marginLeft: 8 }}>🏆 순위</button>
+              <button 
+                className="back-to-source-button" 
+                onClick={handleForceRefresh} 
+                style={{ marginLeft: 8 }} 
+                disabled={isLoading}
+                title="Google Sheets에서 최신 데이터를 다시 가져옵니다"
+              >
+                {isLoading ? '🔄 새로고침 중...' : cacheInfo || '🔄 데이터 새로고침'}
+              </button>
               <div style={{ position: 'relative', display: 'inline-block', marginLeft: 8 }}>
                 <button className="back-to-source-button" onClick={() => setShowTtsSettings(s => !s)}>⚙️ 발음 설정</button>
                 {showTtsSettings && (
@@ -579,6 +622,13 @@ function App() {
                     >
                       🚀 화성 침공 방어
                     </button>
+                    <button 
+                      className="quiz-button"
+                      onClick={() => setMode('bossRaid')}
+                      disabled={words.length < 4}
+                    >
+                      👹 보스 레이드
+                    </button>
                   </div>
                 </div>
               )}
@@ -658,6 +708,9 @@ function App() {
   }
   if (mode === 'fallingQuiz') {
     return <FallingQuiz words={words} onBack={handleBackToWordList} />;
+  }
+  if (mode === 'bossRaid') {
+    return <BossRaid words={words} onBack={handleBackToWordList} />;
   }
   if (mode === 'listeningQuiz') {
     return <ListeningQuiz words={words} onBack={handleBackToWordList} />;
@@ -741,6 +794,15 @@ function App() {
               </div>
             <button className="back-to-source-button" onClick={() => setMode('dashboard')}>📊 내 점수</button>
             <button className="back-to-source-button" onClick={() => setMode('ranking')} style={{ marginLeft: 8 }}>🏆 순위</button>
+            <button 
+              className="back-to-source-button" 
+              onClick={handleForceRefresh} 
+              style={{ marginLeft: 8 }} 
+              disabled={isLoading}
+              title="Google Sheets에서 최신 데이터를 다시 가져옵니다"
+            >
+              {isLoading ? '🔄 새로고침 중...' : cacheInfo || '🔄 데이터 새로고침'}
+            </button>
             <div style={{ position: 'relative', display: 'inline-block', marginLeft: 8 }}>
               <button className="back-to-source-button" onClick={() => setShowTtsSettings(s => !s)}>⚙️ 발음 설정</button>
               {showTtsSettings && (
@@ -1011,6 +1073,13 @@ function App() {
                     disabled={words.length < 4}
                   >
                     🚀 화성 침공 방어
+                  </button>
+                  <button 
+                    className="quiz-button"
+                    onClick={() => setMode('bossRaid')}
+                    disabled={words.length < 4}
+                  >
+                    👹 보스 레이드
                   </button>
                 </div>
               </div>

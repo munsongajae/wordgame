@@ -173,7 +173,7 @@
 .missile-word {
     color: #00f0ff;
     font-weight: 800;
-    font-size: 22px;
+    font-size: 40px;
     text-shadow: 0 0 6px rgba(0, 240, 255, 0.7);
     white-space: nowrap;
 }

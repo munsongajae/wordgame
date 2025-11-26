@@ -74,6 +74,9 @@ export const getAllRankings = (): RankingDisplay[] => {
     { type: 'fillBlankGame', name: '빈칸 채우기 게임' },
     { type: 'sentenceGame', name: '영어 문장 만들기' },
     { type: 'combinedQuiz', name: '종합 퀴즈' },
+    { type: 'bossRaid', name: '보스 레이드' },
+    { type: 'memoryGame', name: '단어 메모리 게임' },
+    { type: 'speedChallenge', name: '단어 스피드 챌린지' },
   ];
   const questionCounts: Array<number | 'infinite'> = [10, 20, 30, 'infinite'];
 

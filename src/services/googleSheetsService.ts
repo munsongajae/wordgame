@@ -469,20 +469,38 @@ export class GoogleSheetsService {
       return [];
     }
 
-    const [, ...rows] = values; // headers 변수 제거
+    const [headers, ...rows] = values;
+    
+    // 헤더에서 출처 컬럼 인덱스 찾기
+    const findSourceColumnIndex = (headers: string[]): number => {
+      const sourceKeywords = ['출처', 'source', 'Source', 'SOURCE', '출전', '원본'];
+      for (let i = 0; i < headers.length; i++) {
+        const header = headers[i]?.trim().toLowerCase();
+        if (sourceKeywords.some(keyword => header.includes(keyword.toLowerCase()))) {
+          return i;
+        }
+      }
+      // 출처 컬럼을 찾지 못하면 D열(인덱스 3) 또는 마지막 컬럼 사용
+      return headers.length > 3 ? 3 : headers.length - 1;
+    };
+    
+    const sourceColumnIndex = findSourceColumnIndex(headers);
+    console.log(`📋 출처 컬럼 인덱스: ${sourceColumnIndex} (헤더: ${headers[sourceColumnIndex]})`);
+    
     const words: Word[] = [];
 
     rows.forEach((row, index) => {
       if (row.length >= 2) {
+        const source = row[sourceColumnIndex]?.trim() || undefined;
         words.push({
           id: `word_${index + 1}`,
           english: this.removePartOfSpeech(row[0]?.trim() || ''),
           korean: row[1]?.trim() || '',
           imageUrl: row[2]?.trim() || undefined,
-          category: row[3]?.trim() || undefined, // D열: 카테고리
-          pronunciation: undefined, // E열은 품사이므로 발음 데이터 없음
-          example: undefined, // 예문 데이터 없음
-          difficulty: undefined // 난이도 데이터 없음
+          category: source, // 출처를 카테고리로 사용
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined
         });
       }
     });
@@ -501,6 +519,26 @@ export class GoogleSheetsService {
       return [];
     }
 
+    // 헤더 파싱
+    const headerLine = lines[0];
+    const headerColumns = this.parseCsvLine(headerLine);
+    
+    // 헤더에서 출처 컬럼 인덱스 찾기
+    const findSourceColumnIndex = (headers: string[]): number => {
+      const sourceKeywords = ['출처', 'source', 'Source', 'SOURCE', '출전', '원본'];
+      for (let i = 0; i < headers.length; i++) {
+        const header = headers[i]?.trim().toLowerCase();
+        if (sourceKeywords.some(keyword => header.includes(keyword.toLowerCase()))) {
+          return i;
+        }
+      }
+      // 출처 컬럼을 찾지 못하면 D열(인덱스 3) 또는 마지막 컬럼 사용
+      return headers.length > 3 ? 3 : headers.length - 1;
+    };
+    
+    const sourceColumnIndex = findSourceColumnIndex(headerColumns);
+    console.log(`📋 출처 컬럼 인덱스: ${sourceColumnIndex} (헤더: ${headerColumns[sourceColumnIndex]})`);
+
     const words: Word[] = [];
     const [, ...rows] = lines; // 헤더 제거
     console.log('📊 데이터 라인 수:', rows.length);
@@ -513,15 +551,16 @@ export class GoogleSheetsService {
       console.log(`📝 파싱된 컬럼들:`, columns);
       
       if (columns.length >= 2 && columns[0].trim() && columns[1].trim()) {
+        const source = columns[sourceColumnIndex]?.trim() || undefined;
         const word: Word = {
           id: `word_${index + 1}`,
           english: this.removePartOfSpeech(columns[0]?.trim() || ''),
           korean: columns[1]?.trim() || '',
           imageUrl: columns[2]?.trim() || undefined,
-          category: columns[3]?.trim() || undefined, // D열: 카테고리
-          pronunciation: undefined, // E열은 품사이므로 발음 데이터 없음
-          example: undefined, // 예문 데이터 없음
-          difficulty: undefined // 난이도 데이터 없음
+          category: source, // 출처를 카테고리로 사용
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined
         };
         words.push(word);
         console.log(`✅ 단어 추가됨:`, word);
@@ -546,6 +585,26 @@ export class GoogleSheetsService {
       return [];
     }
 
+    // 헤더 파싱
+    const headerLine = lines[0];
+    const headerColumns = headerLine.split('\t').map(col => col.trim());
+    
+    // 헤더에서 출처 컬럼 인덱스 찾기
+    const findSourceColumnIndex = (headers: string[]): number => {
+      const sourceKeywords = ['출처', 'source', 'Source', 'SOURCE', '출전', '원본'];
+      for (let i = 0; i < headers.length; i++) {
+        const header = headers[i]?.trim().toLowerCase();
+        if (sourceKeywords.some(keyword => header.includes(keyword.toLowerCase()))) {
+          return i;
+        }
+      }
+      // 출처 컬럼을 찾지 못하면 D열(인덱스 3) 또는 마지막 컬럼 사용
+      return headers.length > 3 ? 3 : headers.length - 1;
+    };
+    
+    const sourceColumnIndex = findSourceColumnIndex(headerColumns);
+    console.log(`📋 출처 컬럼 인덱스: ${sourceColumnIndex} (헤더: ${headerColumns[sourceColumnIndex]})`);
+
     const words: Word[] = [];
     const [, ...rows] = lines; // 헤더 제거
     console.log('📊 데이터 라인 수:', rows.length);
@@ -558,15 +617,16 @@ export class GoogleSheetsService {
       console.log(`📝 파싱된 컬럼들:`, columns);
       
       if (columns.length >= 2 && columns[0] && columns[1]) {
+        const source = columns[sourceColumnIndex] || undefined;
         const word: Word = {
           id: `word_${index + 1}`,
           english: this.removePartOfSpeech(columns[0] || ''),
           korean: columns[1] || '',
           imageUrl: columns[2] || undefined,
-          category: columns[3] || undefined, // D열: 카테고리
-          pronunciation: undefined, // E열은 품사이므로 발음 데이터 없음
-          example: undefined, // 예문 데이터 없음
-          difficulty: undefined // 난이도 데이터 없음
+          category: source, // 출처를 카테고리로 사용
+          pronunciation: undefined,
+          example: undefined,
+          difficulty: undefined
         };
         words.push(word);
         console.log(`✅ 단어 추가됨:`, word);

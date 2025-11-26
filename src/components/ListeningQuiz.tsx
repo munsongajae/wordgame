@@ -291,8 +291,14 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   }, [current, eligible]);
 
   const handleSelect = (optIndex: number) => {
-    if (selected !== null || !current || !options[optIndex] || timeLeft === 0 || isCorrect !== null) return;
-    setSelected(optIndex);
+    if (!current || !options[optIndex] || timeLeft === 0 || isCorrect !== null) return;
+    // 같은 선택지를 다시 클릭하면 해제
+    if (selected === optIndex) {
+      setSelected(null);
+    } else {
+      // 다른 선택지 클릭 시 변경
+      setSelected(optIndex);
+    }
   };
 
   const handleCheckAnswer = () => {
@@ -381,9 +387,11 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
           const success = addRecord(record);
           if (success) {
             setIsNewRecordAchieved(true);
-            playRecordSound(); // 신기록 달성 사운드 재생
           }
         }
+        
+        // 엔딩 사운드 재생 (신기록 여부와 관계없이)
+        playRecordSound();
         
         return;
       }
@@ -536,129 +544,75 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
     }
   };
 
-  return (
-    <div className="quiz-container">
-      <div className="quiz-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '30px',
-        gap: '20px'
-      }}>
-        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <h2 style={{ margin: 0, color: '#333' }}>🎧 듣기 퀴즈 {current && questionCount !== null ? `(${index + 1}/${questions.length})` : ''}</h2>
-        </div>
-        <div style={{ 
-          backgroundColor: '#f5f5f5', 
-          padding: '8px 16px', 
-          borderRadius: '20px',
-          fontWeight: 'bold',
-          color: '#2196F3',
-          minWidth: '80px',
-          textAlign: 'center'
-        }}>
-          ⏱️ {timeLeft}s | 점수: {score}
-        </div>
-      </div>
-
-      {!hasEnough && (
-        <div style={{ textAlign: 'center' }}>
-          <p>단어가 최소 {NUM_OPTIONS}개 필요합니다.</p>
-        </div>
-      )}
-
-      {/* 시작 옵션 선택 */}
-      {hasEnough && questionCount === null && (
-        <div style={{ textAlign: 'center', marginTop: 40 }}>
-          <h3 style={{ color: '#333', fontSize: '24px', marginBottom: '30px' }}>문제 수를 선택하세요</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '20px', 
-            maxWidth: '400px', 
-            margin: '0 auto',
-            padding: '0 20px'
-          }}>
-            {[10, 20, 30].map(cnt => (
-              <button key={cnt}
-                onClick={() => setQuestionCount(cnt)}
-                style={{ 
-                  padding: '24px 20px', 
-                  backgroundColor: '#1976d2', 
-                  color: '#fff', 
-                  border: 'none', 
-                  borderRadius: 16, 
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 12px rgba(25,118,210,0.3)',
-                  transition: 'all 0.3s ease',
-                  minHeight: '80px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(25,118,210,0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(25,118,210,0.3)';
-                }}>
-                {cnt}문제
-              </button>
-            ))}
-            <button onClick={() => setQuestionCount('infinite' as const)}
-              style={{ 
-                padding: '24px 20px', 
-                backgroundColor: '#4CAF50', 
-                color: '#fff', 
-                border: 'none', 
-                borderRadius: 16, 
-                cursor: 'pointer',
-                fontSize: '20px',
-                fontWeight: 'bold',
-                boxShadow: '0 4px 12px rgba(76,175,80,0.3)',
-                transition: 'all 0.3s ease',
-                minHeight: '80px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(76,175,80,0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(76,175,80,0.3)';
-              }}>
-              무제한
-            </button>
+  // 문제 수 선택 화면
+  if (questionCount === null) {
+    if (!hasEnough) {
+      return (
+        <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <div className="card" style={{ textAlign: 'center', maxWidth: 500 }}>
+            <h2 className="card-title">🎧 듣기 퀴즈</h2>
+            <p className="card-subtitle" style={{ marginBottom: 24 }}>단어가 최소 {NUM_OPTIONS}개 필요합니다.</p>
+            <button className="btn btn-outline" onClick={onBack} style={{ marginTop: 24 }}>뒤로가기</button>
           </div>
         </div>
-      )}
+      );
+    }
+    return (
+      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', maxWidth: 500 }}>
+          <h2 className="card-title">🎧 듣기 퀴즈</h2>
+          <p className="card-subtitle" style={{ marginBottom: 24 }}>발음을 듣고 단어를 맞추세요</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(10)}>10문제</button>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(20)}>20문제</button>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(30)}>30문제</button>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(null)}>전체</button>
+          </div>
+          <button className="btn btn-secondary" onClick={() => setQuestionCount('infinite')} style={{ marginTop: 12, width: '100%' }}>무제한 모드</button>
+          <button className="btn btn-outline" onClick={onBack} style={{ marginTop: 24 }}>뒤로가기</button>
+        </div>
+      </div>
+    );
+  }
+
+  const progress = questions.length > 0 ? ((index + 1) / questions.length) * 100 : 0;
+
+  return (
+    <div className="app-container">
+      <div className="app-main">
+        {/* Header */}
+        <header className="game-header">
+          <button className="close-btn" onClick={onBack}>✕</button>
+          <div className="progress-bar-container">
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+          </div>
+          <div style={{ fontWeight: 800, color: 'var(--color-primary)' }}>{score}</div>
+        </header>
 
       {hasEnough && questionCount !== null && !finished && current && (
         <>
-          {/* 듣기 퀴즈 설명 */}
-          <div style={{ 
-            textAlign: 'center', 
-            margin: '20px auto 40px',
-            padding: '20px',
-            backgroundColor: '#e3f2fd',
-            borderRadius: '12px',
-            border: '2px solid #2196F3',
-            maxWidth: '500px'
-          }}>
-            <div style={{ fontSize: '20px', marginBottom: '10px' }}>🎧</div>
-            <div style={{ fontSize: '16px', color: '#1976d2', fontWeight: 'bold' }}>
-              발음을 듣고 정답을 선택하세요
+          {/* Question Area */}
+          <div className="question-area">
+            {/* 듣기 퀴즈 설명 */}
+            <div style={{ 
+              textAlign: 'center', 
+              margin: '20px auto 40px',
+              padding: '20px',
+              backgroundColor: '#e3f2fd',
+              borderRadius: '12px',
+              border: '2px solid #2196F3',
+              maxWidth: '500px'
+            }}>
+              <div style={{ fontSize: '20px', marginBottom: '10px' }}>🎧</div>
+              <div style={{ fontSize: '16px', color: '#1976d2', fontWeight: 'bold' }}>
+                발음을 듣고 정답을 선택하세요
+              </div>
+              <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+                듣기 버튼을 눌러서 발음을 들어보세요
+              </div>
             </div>
-            <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
-              듣기 버튼을 눌러서 발음을 들어보세요
+            <div style={{ color: 'var(--color-slate)', fontWeight: 700 }}>
+              ⏰ {timeLeft}초
             </div>
           </div>
 
@@ -734,7 +688,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
                         : (selected === i ? '#fff' : '#666'),
                     boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
                     transition: 'all 0.2s ease',
-                    cursor: selected !== null || timeLeft === 0 ? 'default' : 'pointer'
+                    cursor: timeLeft === 0 || isCorrect !== null ? 'not-allowed' : 'pointer'
                   }}
                 >
                   {w.english}
@@ -804,7 +758,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
       )}
 
       {hasEnough && finished && (
-        <div style={{ textAlign: 'center', marginTop: 20 }}>
+        <div className="question-area" style={{ textAlign: 'center', marginTop: 20 }}>
           <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
           
           {isNewRecordAchieved && (
@@ -1020,6 +974,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

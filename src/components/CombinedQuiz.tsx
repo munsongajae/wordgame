@@ -411,9 +411,16 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
   };
 
   const handleSelect = (optIndex: number) => {
-    if (selected !== null || !current || timeLeft === 0 || !options[optIndex]) return;
-    setSelected(optIndex);
-    setChecked(null);
+    if (!current || timeLeft === 0 || !options[optIndex]) return;
+    // 같은 선택지를 다시 클릭하면 해제
+    if (selected === optIndex) {
+      setSelected(null);
+      setChecked(null);
+    } else {
+      // 다른 선택지 클릭 시 변경
+      setSelected(optIndex);
+      setChecked(null);
+    }
     // 선택만 하고 즉시 판정/이동하지 않음. 확인 버튼에서 처리
   };
 
@@ -494,8 +501,10 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
           );
           addRecord(record);
           setIsNewRecordAchieved(true);
-          playRecordSound(); // 신기록 달성 사운드 재생
         }
+        
+        // 엔딩 사운드 재생 (신기록 여부와 관계없이)
+        playRecordSound();
         
         return;
       }
@@ -525,7 +534,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
                   <button
                     onClick={() => handleSelect(i)}
                     className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
-                    disabled={selected !== null || timeLeft === 0}
+                    disabled={timeLeft === 0}
                     style={{
                       fontSize: 28,
                       lineHeight: '1.2',
@@ -580,7 +589,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
                   <button
                     onClick={() => handleSelect(i)}
                     className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
-                    disabled={selected !== null || timeLeft === 0}
+                    disabled={timeLeft === 0}
                     style={{
                       fontSize: 28,
                       lineHeight: '1.2',
@@ -725,7 +734,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
             const isCorrect = selected !== null && w.id === current.id;
             const isWrong = selected === i && w.id !== current.id;
             return (
-              <button key={w.id} onClick={() => handleSelect(i)} disabled={selected !== null || timeLeft === 0}
+              <button key={w.id} onClick={() => handleSelect(i)} disabled={timeLeft === 0}
                 className={`option-button ${isCorrect ? 'correct' : ''} ${isWrong ? 'incorrect' : ''}`}
                 style={{ padding: 0, width: 140, height: 140, borderRadius: 10, border: '2px solid #e0e0e0', backgroundColor: isCorrect ? '#4CAF50' : isWrong ? '#F44336' : '#fff' }}>
                 {w.imageUrl ? (
@@ -741,93 +750,49 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
     );
   };
 
-  return (
-    <div className="quiz-container">
-      <div className="quiz-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', gap: '20px' }}>
-        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <h2 style={{ margin: 0, color: '#333' }}>🧩 종합 퀴즈 {current && questionCount !== null ? `(${index + 1}/${questions.length})` : ''}</h2>
-        </div>
-        <div style={{ backgroundColor: '#f5f5f5', padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', color: '#2196F3', minWidth: '80px', textAlign: 'center' }}>
-          ⏱️ {timeLeft}s | 점수: {score}
+  // 문제 수 선택 화면
+  if (questionCount === null) {
+    return (
+      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', maxWidth: 500 }}>
+          <h2 className="card-title">🧩 종합 퀴즈</h2>
+          <p className="card-subtitle" style={{ marginBottom: 24 }}>모든 유형이 섞여 나옵니다</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(10)}>10문제</button>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(20)}>20문제</button>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(30)}>30문제</button>
+            <button className="btn btn-outline" onClick={() => setQuestionCount(null)}>전체</button>
+          </div>
+          <button className="btn btn-secondary" onClick={() => setQuestionCount('infinite')} style={{ marginTop: 12, width: '100%' }}>무제한 모드</button>
+          <button className="btn btn-outline" onClick={onBack} style={{ marginTop: 24 }}>뒤로가기</button>
         </div>
       </div>
+    );
+  }
 
-      {questionCount === null && (
-        <div style={{ textAlign: 'center', marginTop: 40 }}>
-          <h3 style={{ color: '#333', fontSize: '24px', marginBottom: '30px' }}>문제 수를 선택하세요</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '20px', 
-            maxWidth: '400px', 
-            margin: '0 auto',
-            padding: '0 20px'
-          }}>
-            {[10, 20, 30].map(cnt => (
-              <button key={cnt}
-                onClick={() => setQuestionCount(cnt)}
-                style={{ 
-                  padding: '24px 20px', 
-                  backgroundColor: '#1976d2', 
-                  color: '#fff', 
-                  border: 'none', 
-                  borderRadius: 16, 
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 12px rgba(25,118,210,0.3)',
-                  transition: 'all 0.3s ease',
-                  minHeight: '80px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(25,118,210,0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(25,118,210,0.3)';
-                }}>
-                {cnt}문제
-              </button>
-            ))}
-            <button onClick={() => setQuestionCount('infinite' as const)}
-              style={{ 
-                padding: '24px 20px', 
-                backgroundColor: '#4CAF50', 
-                color: '#fff', 
-                border: 'none', 
-                borderRadius: 16, 
-                cursor: 'pointer',
-                fontSize: '20px',
-                fontWeight: 'bold',
-                boxShadow: '0 4px 12px rgba(76,175,80,0.3)',
-                transition: 'all 0.3s ease',
-                minHeight: '80px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(76,175,80,0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(76,175,80,0.3)';
-              }}>
-              무제한
-            </button>
+  const progress = questions.length > 0 ? ((index + 1) / questions.length) * 100 : 0;
+
+  return (
+    <div className="app-container">
+      <div className="app-main">
+        {/* Header */}
+        <header className="game-header">
+          <button className="close-btn" onClick={onBack}>✕</button>
+          <div className="progress-bar-container">
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
           </div>
-        </div>
-      )}
+          <div style={{ fontWeight: 800, color: 'var(--color-primary)' }}>{score}</div>
+        </header>
 
       {questionCount !== null && !finished && current && (
         <>
-          {renderQuestion()}
+          {/* Question Area */}
+          <div className="question-area">
+            {renderQuestion()}
+            <div style={{ color: 'var(--color-slate)', fontWeight: 700, marginTop: 16 }}>
+              ⏰ {timeLeft}초
+            </div>
+          </div>
           {selected !== null && (
             <div style={{ marginTop: 12, textAlign: 'center' }}>
               <button
@@ -859,7 +824,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
       )}
 
       {questionCount !== null && finished && (
-        <div style={{ textAlign: 'center', marginTop: 20 }}>
+        <div className="question-area" style={{ textAlign: 'center', marginTop: 20 }}>
           <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
           
           {isNewRecordAchieved && (
@@ -1028,6 +993,7 @@ export default function CombinedQuiz({ words, onBack }: CombinedQuizProps) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

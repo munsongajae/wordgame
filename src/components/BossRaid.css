@@ -1,0 +1,731 @@
+.boss-abort-btn {
+    width: 70px;
+    align-self: center;
+    padding: 0;
+    font-size: 10px;
+    line-height: 1.2;
+    height: 20px;
+}
+.boss-raid-container {
+    width: 100%;
+    height: 100vh;
+    background-image: url('../assets/images/space_background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: white;
+    font-family: 'Orbitron', 'Roboto', sans-serif;
+    overflow: hidden;
+    position: relative;
+}
+
+.boss-raid-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.boss-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0 10px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.boss-side-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 100%;
+    justify-content: center;
+}
+
+.boss-info-panel {
+    width: 190px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(20, 30, 50, 0.78);
+    border: 1px solid rgba(0, 210, 255, 0.25);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 0 8px rgba(0, 210, 255, 0.1);
+    height: 100%;
+    justify-content: center;
+}
+
+.boss-hp-bar-container {
+    width: 100%;
+    height: 24px;
+    background: #333;
+    border: 2px solid #555;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.boss-hp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4b4b, #ff0000);
+    transition: width 0.3s ease-out;
+    box-shadow: 0 0 10px #ff0000;
+}
+
+.boss-score-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 10px;
+    border: 1px solid rgba(0, 210, 255, 0.4);
+    padding: 6px 4px;
+}
+.boss-score-compact {
+    min-width: 70px;
+}
+
+.boss-score-panel span {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #9ad7ff;
+    margin-bottom: 2px;
+}
+
+.boss-score-panel strong {
+    font-size: 24px;
+    color: #00d2ff;
+    text-shadow: 0 0 10px rgba(0, 210, 255, 0.6);
+}
+
+.question-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 4px 10px;
+    text-align: center;
+    min-height: 48px;
+    height: auto;
+    flex: 1;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 16px;
+    border: 2px solid rgba(0, 210, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.08);
+}
+
+.boss-question-text {
+    font-size: 100px;
+    font-weight: 700;
+    color: #00e1ff;
+    font-family: 'Orbitron', 'Roboto', sans-serif;
+    text-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 6px rgba(0, 0, 0, 0.4);
+    line-height: 1.05;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.game-area {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+}
+
+.invader-plane {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 220px;
+    height: 90px;
+    background-image: url('../assets/images/alien_invader.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 0 18px rgba(0, 255, 255, 0.7));
+    z-index: 30;
+}
+
+.word-missile {
+    position: absolute;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid rgba(0, 210, 255, 0.8);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.35);
+    cursor: pointer;
+    z-index: 15;
+}
+
+.word-missile:hover {
+    transform: translateX(-50%) scale(1.05);
+}
+
+.missile-word {
+    color: #00f0ff;
+    font-weight: 800;
+    font-size: 22px;
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.7);
+    white-space: nowrap;
+}
+
+.earth-defense {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 150px;
+    background-image: url('../assets/images/earth_defense.png');
+    background-size: contain;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+    z-index: 20;
+    filter: drop-shadow(0 0 10px rgba(0, 100, 255, 0.6));
+}
+
+.explosion {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 180px;
+    background-image: url('../assets/images/explosion_effect.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 30;
+    animation: explode 0.5s forwards;
+}
+
+/* Laser Styles */
+.laser-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 25;
+}
+
+.laser-beam {
+    stroke: #00ffff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 5px #00ffff) drop-shadow(0 0 10px #0000ff);
+    animation: laserFade 0.2s forwards;
+}
+
+@keyframes laserFade {
+    0% {
+        opacity: 1;
+        stroke-width: 6;
+    }
+
+    100% {
+        opacity: 0;
+        stroke-width: 1;
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        margin-top: 0;
+    }
+
+    50% {
+        margin-top: -10px;
+    }
+}
+
+@keyframes explode {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+.damage-flash {
+    animation: flashRed 0.3s;
+}
+
+@keyframes flashRed {
+
+    0%,
+    100% {
+        box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0);
+    }
+
+    50% {
+        box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5);
+    }
+}
+
+.start-screen,
+.end-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 20, 40, 0.95);
+    padding: 40px;
+    border-radius: 20px;
+    border: 2px solid #00d2ff;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+    color: white;
+    z-index: 200;
+    min-width: 300px;
+}
+
+.start-screen h2,
+.end-screen h2 {
+    color: #00d2ff;
+    margin-bottom: 20px;
+    font-size: 32px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.btn-space {
+    background: linear-gradient(180deg, #00d2ff, #0078ff);
+    border: none;
+    padding: 12px 30px;
+    color: white;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.2s;
+    box-shadow: 0 0 10px rgba(0, 120, 255, 0.5);
+    margin: 10px;
+}
+
+.btn-space:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 120, 255, 0.8);
+}
+
+.btn-space-outline {
+    background: transparent;
+    border: 2px solid #00d2ff;
+    color: #00d2ff;
+    padding: 10px 28px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+    z-index: 10;
+    animation: float 2s infinite ease-in-out;
+}
+
+.invader-ship {
+    width: 100%;
+    height: 100%;
+    background-image: url('../assets/images/alien_invader.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 0 5px rgba(0, 255, 0, 0.5));
+}
+
+.invader-text {
+    position: absolute;
+    top: 100%;
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 8px 16px;
+    border-radius: 16px;
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    font-weight: 900;
+    font-size: 24px;
+    text-shadow: 0 0 5px #00ff00;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.earth-defense {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 150px;
+    background-image: url('../assets/images/earth_defense.png');
+    background-size: contain;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+    z-index: 20;
+    filter: drop-shadow(0 0 10px rgba(0, 100, 255, 0.6));
+}
+
+.explosion {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 180px;
+    background-image: url('../assets/images/explosion_effect.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 30;
+    animation: explode 0.5s forwards;
+}
+
+/* Laser Styles */
+.laser-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 25;
+}
+
+.laser-beam {
+    stroke: #00ffff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 5px #00ffff) drop-shadow(0 0 10px #0000ff);
+    animation: laserFade 0.2s forwards;
+}
+
+@keyframes laserFade {
+    0% {
+        opacity: 1;
+        stroke-width: 6;
+    }
+
+    100% {
+        opacity: 0;
+        stroke-width: 1;
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        margin-top: 0;
+    }
+
+    50% {
+        margin-top: -10px;
+    }
+}
+
+@keyframes explode {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+.damage-flash {
+    animation: flashRed 0.3s;
+}
+
+@keyframes flashRed {
+
+    0%,
+    100% {
+        box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0);
+    }
+
+    50% {
+        box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5);
+    }
+}
+
+.start-screen,
+.end-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 20, 40, 0.95);
+    padding: 40px;
+    border-radius: 20px;
+    border: 2px solid #00d2ff;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+    color: white;
+    z-index: 200;
+    min-width: 300px;
+}
+
+.start-screen h2,
+.end-screen h2 {
+    color: #00d2ff;
+    margin-bottom: 20px;
+    font-size: 32px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.btn-space {
+    background: linear-gradient(180deg, #00d2ff, #0078ff);
+    border: none;
+    padding: 12px 30px;
+    color: white;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.2s;
+    box-shadow: 0 0 10px rgba(0, 120, 255, 0.5);
+    margin: 10px;
+}
+
+.btn-space:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 120, 255, 0.8);
+}
+
+.btn-space-outline {
+    background: transparent;
+    border: 2px solid #00d2ff;
+    color: #00d2ff;
+    padding: 10px 28px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+    z-index: 10;
+    animation: float 2s infinite ease-in-out;
+}
+
+.invader-ship {
+    width: 100%;
+    height: 100%;
+    background-image: url('../assets/images/alien_invader.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 0 5px rgba(0, 255, 0, 0.5));
+}
+
+.invader-text {
+    position: absolute;
+    top: 100%;
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 8px 16px;
+    border-radius: 16px;
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    font-weight: 900;
+    font-size: 24px;
+    text-shadow: 0 0 5px #00ff00;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.earth-defense {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 150px;
+    background-image: url('../assets/images/earth_defense.png');
+    background-size: contain;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+    z-index: 20;
+    filter: drop-shadow(0 0 10px rgba(0, 100, 255, 0.6));
+}
+
+.explosion {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 180px;
+    background-image: url('../assets/images/explosion_effect.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 30;
+    animation: explode 0.5s forwards;
+}
+
+/* Laser Styles */
+.laser-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 25;
+}
+
+.laser-beam {
+    stroke: #00ffff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 5px #00ffff) drop-shadow(0 0 10px #0000ff);
+    animation: laserFade 0.2s forwards;
+}
+
+@keyframes laserFade {
+    0% {
+        opacity: 1;
+        stroke-width: 6;
+    }
+
+    100% {
+        opacity: 0;
+        stroke-width: 1;
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        margin-top: 0;
+    }
+
+    50% {
+        margin-top: -10px;
+    }
+}
+
+@keyframes explode {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+.damage-flash {
+    animation: flashRed 0.3s;
+}
+
+@keyframes flashRed {
+
+    0%,
+    100% {
+        box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0);
+    }
+
+    50% {
+        box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5);
+    }
+}
+
+.start-screen,
+.end-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 20, 40, 0.95);
+    padding: 40px;
+    border-radius: 20px;
+    border: 2px solid #00d2ff;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+    color: white;
+    z-index: 200;
+    min-width: 300px;
+}
+
+.start-screen h2,
+.end-screen h2 {
+    color: #00d2ff;
+    margin-bottom: 20px;
+    font-size: 32px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.btn-space {
+    background: linear-gradient(180deg, #00d2ff, #0078ff);
+    border: none;
+    padding: 12px 30px;
+    color: white;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.2s;
+    box-shadow: 0 0 10px rgba(0, 120, 255, 0.5);
+    margin: 10px;
+}
+
+.btn-space:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 120, 255, 0.8);
+}
+
+.btn-space-outline {
+    background: transparent;
+    border: 2px solid #00d2ff;
+    color: #00d2ff;
+    padding: 10px 28px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    margin: 0;
+}

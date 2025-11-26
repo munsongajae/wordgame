@@ -1,17 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Word } from '../types/word';
+import { useWords } from '../contexts/WordsContext';
 import { logAttempt, saveSession, updateProgress } from '../services/trackingService';
 import { addRecord, createRecordFromQuizResult, isNewRecord } from '../services/rankingService';
-
-interface BossRaidProps {
-  words: Word[];
-  onBack: () => void;
-}
+import './BossRaid.css';
 
 type PhaseType = 'meaning' | 'image' | 'listening' | 'spelling';
 
-const PHASE_TIME_SEC = 20;
-const AUTO_NEXT_DELAY_MS = 800;
+const PHASE_TIME_SEC = 10;
+const AUTO_NEXT_DELAY_MS = 1500;
+const GAME_AREA_HEIGHT = 700;
+const INVADER_SPEED = 1.2; // Slightly faster for excitement
+const BOSS_MAX_HP = 10;
+
+type Invader = {
+  id: string;
+  word: Word;
+  x: number; // Percentage
+  y: number; // Pixels
+  isCorrect: boolean;
+  isDestroyed: boolean;
+};
+
+type Laser = {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -22,21 +40,30 @@ function pickRandom<T>(arr: T[], count: number): T[] {
   return copy.slice(0, count);
 }
 
-const BossRaid: React.FC<BossRaidProps> = ({ words, onBack }) => {
+const BossRaid: React.FC = () => {
+  const navigate = useNavigate();
+  const { words } = useWords();
   const eligible = useMemo(() => words.filter(w => !!w.english && !!w.korean), [words]);
-  const [bossHp, setBossHp] = useState(10);
+  const [bossHp, setBossHp] = useState(BOSS_MAX_HP);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(PHASE_TIME_SEC);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [checked, setChecked] = useState<boolean | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [questionCount] = useState(10);
   const [quizStartTime, setQuizStartTime] = useState(0);
   const [showNewRecord, setShowNewRecord] = useState(false);
+  const [invaders, setInvaders] = useState<Invader[]>([]);
+  const [explosions, setExplosions] = useState<Array<{ id: string; x: number; y: number; timestamp: number }>>([]);
+  const [isDamaged, setIsDamaged] = useState(false);
+  const [lasers, setLasers] = useState<Laser[]>([]);
 
   const sessionIdRef = useRef<string | null>(null);
   const autoNextTimeoutRef = useRef<number | null>(null);
+  const gameAreaRef = useRef<HTMLDivElement>(null);
+  const invaderIdRef = useRef<number>(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
 
   const phases: PhaseType[] = useMemo(() => {
     const base: PhaseType[] = ['meaning', 'image', 'listening', 'spelling'];
@@ -46,17 +73,24 @@ const BossRaid: React.FC<BossRaidProps> = ({ words, onBack }) => {
   }, [questionCount]);
 
   const currentType = phases[phaseIndex] || null;
-  const options = useMemo(() => {
-    const current = eligible[Math.floor(Math.random() * eligible.length)];
-    if (!current) return [] as Word[];
-    const pool = pickRandom(eligible.filter(w => w.id !== current.id), 3);
-    return pickRandom([...pool, current], 4);
-  }, [eligible, phaseIndex]);
 
-  const currentAnswer = useMemo(() => options.find(o => eligible.some(e => e.id === o.id) && options.every(opt => opt.id !== undefined)) && options.find(o => o), [options]);
-  const current = useMemo(() => options.find(w => w && w.english), [options]);
+  // Current Question Generation
+  const currentQuestion = useMemo(() => {
+    if (!currentType || eligible.length < 4) return null;
+    const correct = pickRandom(eligible, 1)[0];
+    const wrongOptions = pickRandom(
+      eligible.filter(w => w.id !== correct.id),
+      3
+    );
+    const allOptions = [...wrongOptions, correct];
+    return {
+      correct,
+      options: pickRandom(allOptions, 4),
+      type: currentType
+    };
+  }, [eligible, currentType, phaseIndex]);
 
-  // simple TTS for listening
+  // TTS
   const speakWord = useCallback((text: string) => {
     if (!('speechSynthesis' in window)) return;
     try {
@@ -64,13 +98,283 @@ const BossRaid: React.FC<BossRaidProps> = ({ words, onBack }) => {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'en-US';
       window.speechSynthesis.speak(u);
-    } catch {}
+    } catch { }
   }, []);
+
+  // Sounds
+  const playSound = useCallback((type: 'correct' | 'wrong' | 'record' | 'explosion' | 'laser') => {
+    try {
+      let src = '';
+      if (type === 'correct') src = '/success.mp3';
+      else if (type === 'wrong') src = '/wrong.mp3';
+      else if (type === 'record') src = '/record.mp3';
+      else if (type === 'explosion') src = '/explosion.mp3';
+      // else if (type === 'laser') src = '/laser.mp3'; // Optional
+
+      if (src) {
+        const audio = new Audio(src);
+        audio.volume = 0.6;
+        audio.play().catch(() => { });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
+  const startMission = useCallback(() => {
+    setPhaseIndex(0);
+    setFinished(false);
+    setScore(0);
+    setBossHp(BOSS_MAX_HP);
+    setSelected(null);
+    setInvaders([]);
+    if (bgmRef.current) {
+      bgmRef.current.currentTime = 0;
+      bgmRef.current.play().catch(() => { });
+    }
+  }, []);
+
+  const stopBgm = useCallback(() => {
+    if (bgmRef.current) {
+      bgmRef.current.pause();
+      bgmRef.current.currentTime = 0;
+    }
+  }, []);
+
+  const handleAbort = useCallback(() => {
+    stopBgm();
+    navigate('/game');
+  }, [navigate, stopBgm]);
+
+  useEffect(() => {
+    const bgm = new Audio('/boss_bgm.mp3');
+    bgm.loop = true;
+    bgm.volume = 0.25;
+    bgmRef.current = bgm;
+    return () => {
+      bgm.pause();
+      bgmRef.current = null;
+    };
+  }, []);
+
+  // Spawn Invaders
+  const spawnInvaders = useCallback(() => {
+    if (!currentQuestion || !gameAreaRef.current) return;
+
+    const gameAreaWidth = gameAreaRef.current.offsetWidth;
+    // Use fixed percentages for better distribution
+    const positions = [15, 38, 62, 85]; // Percentages
+
+    const newInvaders: Invader[] = currentQuestion.options.map((word, index) => {
+      return {
+        id: `invader-${invaderIdRef.current++}`,
+        word,
+        x: positions[index % positions.length],
+        y: 40, // Launch just under the plane
+        isCorrect: word.id === currentQuestion.correct.id,
+        isDestroyed: false
+      };
+    });
+
+    setInvaders(newInvaders);
+  }, [currentQuestion]);
+
+  // Update Invaders Loop
+  const updateInvaders = useCallback(() => {
+    if (!gameAreaRef.current || finished) return;
+
+    setInvaders(prev => {
+      const updated = prev.map(invader => {
+        if (invader.isDestroyed) return invader;
+        return {
+          ...invader,
+          y: invader.y + INVADER_SPEED
+        };
+      });
+
+      // Check collision with Earth
+      const earthY = GAME_AREA_HEIGHT - 100;
+      const reachedInvaders = updated.filter(invader =>
+        !invader.isDestroyed && invader.y >= earthY
+      );
+
+      if (reachedInvaders.length > 0) {
+        const wrongInvaders = reachedInvaders.filter(inv => !inv.isCorrect);
+        if (wrongInvaders.length > 0) {
+          setBossHp(prev => Math.max(0, prev - wrongInvaders.length));
+          playSound('wrong');
+
+          // Trigger damage flash
+          setIsDamaged(true);
+          setTimeout(() => setIsDamaged(false), 300);
+
+          // Explosions at bottom
+          wrongInvaders.forEach(inv => {
+            playSound('explosion');
+            setExplosions(prev => [...prev, {
+              id: `explosion-${Date.now()}-${Math.random()}`,
+              x: inv.x,
+              y: earthY,
+              timestamp: Date.now()
+            }]);
+          });
+
+          // Remove reached invaders
+          return updated.map(inv =>
+            reachedInvaders.some(r => r.id === inv.id)
+              ? { ...inv, isDestroyed: true }
+              : inv
+          );
+        }
+      }
+
+      return updated.filter(inv => inv.y < GAME_AREA_HEIGHT + 200);
+    });
+
+    animationFrameRef.current = requestAnimationFrame(() => updateInvaders());
+  }, [finished, playSound]);
+
+  // Handle Click
+  const handleInvaderClick = useCallback((invaderId: string) => {
+    if (selected !== null || finished || !gameAreaRef.current) return;
+
+    const invader = invaders.find(inv => inv.id === invaderId);
+    if (!invader || invader.isDestroyed) return;
+
+    setSelected(invaderId);
+
+    const isCorrect = invader.isCorrect;
+
+    // Calculate laser coordinates
+    const gameArea = gameAreaRef.current;
+    const startX = gameArea.offsetWidth / 2;
+    const startY = gameArea.offsetHeight - 50; // Turret position
+    const endX = (invader.x / 100) * gameArea.offsetWidth;
+    const endY = invader.y + 70; // Center of invader (approx)
+
+    // Fire laser
+    const laserId = `laser-${Date.now()}`;
+    setLasers(prev => [...prev, {
+      id: laserId,
+      x1: startX,
+      y1: startY,
+      x2: endX,
+      y2: endY
+    }]);
+
+    // Remove laser after animation
+    setTimeout(() => {
+      setLasers(prev => prev.filter(l => l.id !== laserId));
+    }, 200);
+
+    if (isCorrect) {
+      setBossHp(prev => Math.max(0, prev - 1));
+      setScore(prev => prev + 1);
+
+      // Delay explosion slightly to match laser hit
+      setTimeout(() => {
+        playSound('explosion');
+        setExplosions(prev => [...prev, {
+          id: `explosion-${Date.now()}-${Math.random()}`,
+          x: invader.x,
+          y: invader.y,
+          timestamp: Date.now()
+        }]);
+
+        setInvaders(prev => prev.map(inv =>
+          inv.id === invaderId ? { ...inv, isDestroyed: true } : inv
+        ));
+      }, 100);
+
+      logAttempt({
+        sessionId: sessionIdRef.current,
+        mode: 'bossRaid',
+        wordId: invader.word.id,
+        correct: true
+      });
+      updateProgress({ wordId: invader.word.id, correct: true });
+    } else {
+      playSound('wrong');
+      setIsDamaged(true);
+      setTimeout(() => setIsDamaged(false), 300);
+
+      // Delay explosion slightly
+      setTimeout(() => {
+        playSound('explosion');
+        setExplosions(prev => [...prev, {
+          id: `explosion-${Date.now()}-${Math.random()}`,
+          x: invader.x,
+          y: invader.y,
+          timestamp: Date.now()
+        }]);
+
+        setInvaders(prev => prev.map(inv =>
+          inv.id === invaderId ? { ...inv, isDestroyed: true } : inv
+        ));
+      }, 100);
+
+      logAttempt({
+        sessionId: sessionIdRef.current,
+        mode: 'bossRaid',
+        wordId: invader.word.id,
+        correct: false
+      });
+      updateProgress({ wordId: invader.word.id, correct: false });
+    }
+
+    if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
+    autoNextTimeoutRef.current = window.setTimeout(() => {
+      setSelected(null);
+      goNextPhase();
+    }, AUTO_NEXT_DELAY_MS);
+  }, [selected, finished, invaders, playSound, gameAreaRef]);
+
+  const goNextPhase = () => {
+    if (bossHp <= 0 || phaseIndex + 1 >= questionCount) {
+      finishRaid();
+    } else {
+      setPhaseIndex(prev => prev + 1);
+      setSelected(null);
+      setInvaders([]);
+    }
+  };
+
+  const finishRaid = () => {
+    setFinished(true);
+    stopBgm();
+    const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
+    saveSession({ mode: 'bossRaid', score, total: questionCount, durationSec }).then(id => {
+      sessionIdRef.current = id;
+    });
+    const totalTimeMs = durationSec * 1000;
+    const accuracy = Math.round((score / questionCount) * 100);
+    try {
+      if (isNewRecord('bossRaid', totalTimeMs, accuracy, questionCount)) {
+        const record = createRecordFromQuizResult(
+          'bossRaid',
+          score,
+          questionCount,
+          quizStartTime,
+          Date.now(),
+          questionCount
+        );
+        addRecord(record);
+        setShowNewRecord(true);
+      }
+    } catch { }
+    playSound('record');
+  };
 
   useEffect(() => {
     if (finished) return;
     setTimeLeft(PHASE_TIME_SEC);
-    if (phaseIndex === 0) setQuizStartTime(Date.now());
+    setInvaders([]);
+    setSelected(null);
+    if (phaseIndex === 0) {
+      setQuizStartTime(Date.now());
+      setBossHp(BOSS_MAX_HP);
+      setScore(0);
+    }
   }, [phaseIndex, finished]);
 
   useEffect(() => {
@@ -78,6 +382,7 @@ const BossRaid: React.FC<BossRaidProps> = ({ words, onBack }) => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         const next = Math.max(0, prev - 1);
+        if (next === 0) goNextPhase();
         return next;
       });
     }, 1000);
@@ -85,159 +390,169 @@ const BossRaid: React.FC<BossRaidProps> = ({ words, onBack }) => {
   }, [finished, phaseIndex]);
 
   useEffect(() => {
-    if (timeLeft === 0 && !finished) {
-      // time over -> move next phase, small penalty
-      setBossHp(hp => Math.max(0, hp - 0));
-      goNextPhase();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
+    if (finished || !currentQuestion) return;
+    spawnInvaders();
+    animationFrameRef.current = requestAnimationFrame(() => updateInvaders());
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [currentQuestion, finished, spawnInvaders, updateInvaders]);
 
-  const handleSelect = (i: number) => {
-    if (selected !== null || finished) return;
-    setSelected(i);
-    setChecked(null);
-  };
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      setExplosions(prev => prev.filter(exp => Date.now() - exp.timestamp < 500));
+    }, 100);
+    return () => clearInterval(cleanup);
+  }, []);
 
-  const handleCheck = () => {
-    if (selected === null || finished) return;
-    const cur = options[selected];
-    const correct = (() => {
-      switch (currentType) {
-        case 'meaning':
-          return !!(cur?.english && cur.english === options.find(o => o.english)?.english);
-        case 'image':
-          return !!(cur?.id && cur.id === options.find(o => o.id === cur.id)?.id && !!cur.imageUrl);
-        case 'listening':
-          return !!(cur?.english && cur.english === options.find(o => o.english)?.english);
-        case 'spelling':
-          return !!(cur?.english && cur.english === options.find(o => o.english)?.english);
-        default:
-          return false;
-      }
-    })();
-
-    setChecked(correct);
-    if (correct) {
-      setScore(s => s + 1);
-      setBossHp(hp => Math.max(0, hp - 1));
-      logAttempt({ sessionId: sessionIdRef.current, mode: 'combinedQuiz', wordId: cur?.id || 'unknown', correct: true });
-      updateProgress({ wordId: cur?.id || 'unknown', correct: true });
-    } else {
-      logAttempt({ sessionId: sessionIdRef.current, mode: 'combinedQuiz', wordId: cur?.id || 'unknown', correct: false });
-      updateProgress({ wordId: cur?.id || 'unknown', correct: false });
-    }
-
-    if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-    autoNextTimeoutRef.current = window.setTimeout(() => {
-      setSelected(null);
-      setChecked(null);
-      goNextPhase();
-    }, AUTO_NEXT_DELAY_MS);
-  };
-
-  const goNextPhase = () => {
-    if (bossHp <= 0 || phaseIndex + 1 >= questionCount) {
-      finishRaid();
-    } else {
-      setPhaseIndex(p => p + 1);
-    }
-  };
-
-  const finishRaid = () => {
-    setFinished(true);
-    const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-    saveSession({ mode: 'combinedQuiz', score, total: questionCount, durationSec }).then(() => {});
-    const totalTimeMs = durationSec * 1000;
-    const accuracy = Math.round((score / questionCount) * 100);
-    try {
-      if (isNewRecord('combinedQuiz', totalTimeMs, accuracy, questionCount)) {
-        const record = createRecordFromQuizResult('combinedQuiz', score, questionCount, quizStartTime, Date.now(), questionCount);
-        addRecord(record);
-        setShowNewRecord(true);
-      }
-    } catch {}
-  };
-
-  // UI
-  if (finished) {
-    const accuracy = Math.round((score / questionCount) * 100);
-    const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
+  // Start Screen
+  if (!currentQuestion && !finished) {
     return (
-      <div style={{ textAlign: 'center', marginTop: 20 }}>
-        <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>👹 보스 레이드 결과</h3>
-        {showNewRecord && (
-          <div style={{ backgroundColor: '#fff3cd', border: '2px solid #ffc107', borderRadius: 12, padding: 15, margin: '10px 0', color: '#856404', animation: 'pulse 2s infinite' }}>
-            🏆 신기록 달성! 순위에 기록되었습니다!
+      <div className="boss-raid-container">
+        <div className="boss-raid-overlay">
+          <div className="start-screen">
+            <h2>👽 Alien Invasion</h2>
+            <p style={{ marginBottom: 24, fontSize: 18 }}>Defend Earth from the incoming word invaders!</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+            <button className="btn-space-outline" onClick={() => navigate('/game')}>BACK</button>
+            <button className="btn-space" onClick={startMission}>START MISSION</button>
+            </div>
           </div>
-        )}
-        <div style={{ fontSize: 36, fontWeight: 800, color: '#2196F3', margin: '20px 0' }}>{score} / {questionCount}</div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 30, margin: '20px 0', flexWrap: 'wrap' }}>
-          <div style={{ backgroundColor: '#e3f2fd', padding: '15px 25px', borderRadius: 12, border: '2px solid #2196F3' }}>
-            <div style={{ fontSize: 14, color: '#666', marginBottom: 5 }}>정답률</div>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1976d2' }}>{accuracy}%</div>
-          </div>
-          <div style={{ backgroundColor: '#f3e5f5', padding: '15px 25px', borderRadius: 12, border: '2px solid #9c27b0' }}>
-            <div style={{ fontSize: 14, color: '#666', marginBottom: 5 }}>클리어 시간</div>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#7b1fa2' }}>{durationSec}초</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 15, justifyContent: 'center', marginTop: 30, flexWrap: 'wrap' }}>
-          <button onClick={onBack} style={{ padding: '15px 30px', fontSize: 18, backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 'bold' }}>메인으로</button>
         </div>
       </div>
     );
   }
 
+  // End Screen
+  if (finished) {
+    const accuracy = Math.round((score / questionCount) * 100);
+    const isVictory = bossHp > 0; // If HP > 0 after all questions, or if we define victory differently. Actually usually bossHp <= 0 means we killed the boss, but here bossHp is OUR hp?
+    // Wait, original logic: bossHp was "Boss HP". "오답 침공자가 지구에 도달하면 보스 HP 감소" -> This implies bossHp is actually Earth's HP or Player's HP.
+    // However, `setBossHp(prev => Math.max(0, prev - 1))` when CORRECT answer implies damaging the BOSS.
+    // The original code had mixed metaphors.
+    // Let's stick to: We are defending Earth. Correct answer destroys invader.
+    // If we want a "Boss" bar, maybe it represents the Invasion Force Strength.
+    // Let's treat `bossHp` as "Invasion Force" remaining.
+    // Victory if we survive? Or if we get high score?
+    // Let's say Victory if Score > 5.
+
+    return (
+      <div className="boss-raid-container">
+        <div className="boss-raid-overlay">
+          <div className="end-screen">
+            <h2>{score >= 7 ? '🎉 MISSION ACCOMPLISHED' : '💥 MISSION FAILED'}</h2>
+            {showNewRecord && <div style={{ color: '#ffd700', fontWeight: 800, marginBottom: 16 }}>🏆 NEW RECORD!</div>}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, margin: '24px 0' }}>
+              <div>
+                <div style={{ fontSize: 36, fontWeight: 'bold', color: '#00d2ff' }}>{score}</div>
+                <div style={{ color: '#aaa' }}>SCORE</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 36, fontWeight: 'bold', color: '#00d2ff' }}>{accuracy}%</div>
+                <div style={{ color: '#aaa' }}>ACCURACY</div>
+              </div>
+            </div>
+
+            <button className="btn-space" onClick={() => navigate('/game')}>RETURN TO BASE</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const hpPercentage = (bossHp / BOSS_MAX_HP) * 100;
+
   return (
-    <div className="quiz-container" style={{ maxWidth: 900, margin: '0 auto' }}>
-      <div className="quiz-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
-        <div style={{ fontWeight: 'bold' }}>👹 보스 HP: {bossHp} / 10</div>
-        <div style={{ backgroundColor: '#f5f5f5', padding: '8px 16px', borderRadius: 20, fontWeight: 'bold', color: '#2196F3' }}>⏱️ {timeLeft}s</div>
-      </div>
+    <div className={`boss-raid-container ${isDamaged ? 'damage-flash' : ''}`}>
+      <div className="boss-raid-overlay">
+        <div className="boss-top">
+          <div className="boss-side-column">
+            <button className="btn-space-outline boss-abort-btn" onClick={handleAbort}>ABORT</button>
+            <div className="boss-score-panel boss-score-compact">
+              <span>SCORE</span>
+              <strong>{score}</strong>
+            </div>
+          </div>
 
-      {/* 안내 카드 */}
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'inline-block', padding: '12px 16px', margin: '12px 0', backgroundColor: '#fff', border: '2px solid #e0e0e0', borderRadius: 14, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: 18, color: '#333', fontWeight: 700 }}>패턴: {currentType === 'meaning' ? '뜻 고르기' : currentType === 'image' ? '그림 고르기' : currentType === 'listening' ? '발음 듣고 고르기' : '철자 고르기'}</div>
+          {/* Question Display */}
+          <div className="question-display">
+            {currentType === 'listening' && (
+              <button className="btn-space" onClick={() => speakWord(currentQuestion!.correct.english)}>
+                🎧 LISTEN
+              </button>
+            )}
+            {currentType === 'image' && currentQuestion?.correct.imageUrl && (
+              <img
+                src={currentQuestion.correct.imageUrl}
+                alt="Target"
+                style={{ width: 220, height: 160, objectFit: 'cover', borderRadius: 10, border: '2px solid #00d2ff' }}
+              />
+            )}
+            {currentType === 'meaning' && (
+              <div className="boss-question-text">{currentQuestion!.correct.korean}</div>
+            )}
+            {currentType === 'spelling' && (
+              <div className="boss-question-text">{currentQuestion!.correct.english}</div>
+            )}
+          </div>
+
+          <div className="boss-side-column">
+            <div className="boss-hp-bar-container">
+              <div className="boss-hp-bar-fill" style={{ width: `${hpPercentage}%` }}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Game Area */}
+        <div ref={gameAreaRef} className="game-area">
+          <div className="invader-plane" />
+          {/* Lasers */}
+          <svg className="laser-container">
+            {lasers.map(laser => (
+              <line
+                key={laser.id}
+                x1={laser.x1}
+                y1={laser.y1}
+                x2={laser.x2}
+                y2={laser.y2}
+                className="laser-beam"
+              />
+            ))}
+          </svg>
+
+          {/* Invaders */}
+          {invaders.map(invader => {
+            if (invader.isDestroyed) return null;
+            return (
+              <div
+                key={invader.id}
+                className="word-missile"
+                style={{ left: `${invader.x}%`, top: `${invader.y}px` }}
+                onClick={() => handleInvaderClick(invader.id)}
+              >
+                <div className="missile-word">
+                  {currentType === 'spelling' ? invader.word.korean : invader.word.english}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Explosions */}
+          {explosions.map(exp => (
+            <div
+              key={exp.id}
+              className="explosion"
+              style={{ left: `${exp.x}%`, top: `${exp.y}px` }}
+            />
+          ))}
+
+          {/* Earth Defense */}
+          <div className="earth-defense"></div>
         </div>
       </div>
-
-      {currentType === 'listening' && (
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <button onClick={() => speakWord(options.find(o => o)?.english || '')} style={{ padding: '12px 24px', fontSize: 18, backgroundColor: '#FF9800', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>🎧 듣기</button>
-        </div>
-      )}
-
-      {/* 선택지 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, justifyItems: 'center', maxWidth: 600, margin: '0 auto' }}>
-        {options.map((w, i) => (
-          <button key={w.id || i} onClick={() => handleSelect(i)} disabled={selected !== null}
-            style={{ width: 260, minHeight: 80, padding: 12, borderRadius: 12, border: '2px solid #e0e0e0', backgroundColor: selected === i ? '#E8F5E9' : '#fff', cursor: selected !== null ? 'default' : 'pointer', fontSize: 20, fontWeight: 700 }}>
-            {currentType === 'image' && w.imageUrl ? (
-              <img src={w.imageUrl} alt={w.english} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} />
-            ) : null}
-            {currentType === 'meaning' ? w.english : currentType === 'spelling' ? w.english : w.english}
-          </button>
-        ))}
-      </div>
-
-      {/* 확인 버튼 / 판정 */}
-      {selected !== null && (
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <button onClick={handleCheck} disabled={checked !== null} style={{ padding: '12px 24px', fontSize: 18, backgroundColor: '#FF9800', color: '#fff', border: 'none', borderRadius: 10, cursor: checked !== null ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>✅ 정답 확인</button>
-        </div>
-      )}
-
-      {checked !== null && (
-        <div style={{ marginTop: 12, fontWeight: 700, color: checked ? '#4CAF50' : '#F44336', textAlign: 'center' }}>
-          {checked ? '정답입니다! 🎉' : `오답입니다.`}
-        </div>
-      )}
     </div>
   );
 };
 
 export default BossRaid;
-

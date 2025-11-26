@@ -324,6 +324,66 @@ export class SentenceProblemService {
   }
 
   /**
+   * 기존 테이블에 RLS를 활성화합니다 (보안 경고 해결용)
+   */
+  static async enableRLSOnExistingTable(): Promise<boolean> {
+    try {
+      console.log('🔒 sentence_problems 테이블에 RLS 활성화 시도...');
+      
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Supabase 클라이언트를 초기화할 수 없습니다.');
+      }
+
+      // RLS 활성화 및 정책 생성 SQL
+      const enableRLSSQL = `
+        -- RLS 활성화
+        ALTER TABLE public.sentence_problems ENABLE ROW LEVEL SECURITY;
+
+        -- 기존 정책이 있으면 삭제 (중복 방지)
+        DROP POLICY IF EXISTS "Enable read access for all users" ON public.sentence_problems;
+        DROP POLICY IF EXISTS "Enable insert for all users" ON public.sentence_problems;
+        DROP POLICY IF EXISTS "Enable update for all users" ON public.sentence_problems;
+        DROP POLICY IF EXISTS "Enable delete for all users" ON public.sentence_problems;
+
+        -- 새로운 정책 생성
+        CREATE POLICY "Enable read access for all users" 
+          ON public.sentence_problems
+          FOR SELECT 
+          USING (true);
+
+        CREATE POLICY "Enable insert for all users" 
+          ON public.sentence_problems
+          FOR INSERT 
+          WITH CHECK (true);
+
+        CREATE POLICY "Enable update for all users" 
+          ON public.sentence_problems
+          FOR UPDATE 
+          USING (true);
+
+        CREATE POLICY "Enable delete for all users" 
+          ON public.sentence_problems
+          FOR DELETE 
+          USING (true);
+      `;
+
+      const { error } = await supabase.rpc('exec_sql', { sql: enableRLSSQL });
+      
+      if (error) {
+        console.error('❌ RLS 활성화 실패:', error);
+        return false;
+      }
+
+      console.log('✅ sentence_problems 테이블에 RLS 활성화 완료');
+      return true;
+    } catch (error) {
+      console.error('❌ RLS 활성화 중 오류:', error);
+      return false;
+    }
+  }
+
+  /**
    * 테이블을 자동으로 생성합니다
    */
   static async createTableIfNotExists(): Promise<boolean> {

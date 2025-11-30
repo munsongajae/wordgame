@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { UserName } from '../types/ranking';
 
 let supabase: SupabaseClient | null = null;
 let supabaseInitialized = false;
@@ -47,19 +48,22 @@ export function getOrCreateAnonUserId(): string {
   return id;
 }
 
-export function setCurrentUserByName(name: '열음이' | '지음이') {
-  const ids: Record<'열음이' | '지음이', string> = {
+export function setCurrentUserByName(name: UserName) {
+  const ids: Record<UserName, string> = {
     // 유효한 UUID 값 사용 (고정)
     '열음이': '11111111-1111-1111-1111-111111111111',
-    '지음이': '22222222-2222-2222-2222-222222222222'
+    '지음이': '22222222-2222-2222-2222-222222222222',
+    '규진이': '33333333-3333-3333-3333-333333333333',
+    '규선이': '44444444-4444-4444-4444-444444444444'
   };
   localStorage.setItem('user_name', name);
   localStorage.setItem('anon_user_id', ids[name]);
 }
 
-export function getCurrentUserName(): '열음이' | '지음이' {
+export function getCurrentUserName(): UserName {
   const v = localStorage.getItem('user_name');
-  if (v === '열음이' || v === '지음이') return v;
+  const validNames: UserName[] = ['열음이', '지음이', '규진이', '규선이'];
+  if (v && validNames.includes(v as UserName)) return v as UserName;
   // default 초기값: 열음이
   setCurrentUserByName('열음이');
   return '열음이';

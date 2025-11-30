@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWords } from '../contexts/WordsContext';
 import { useUser } from '../contexts/UserContext';
+import { UserName } from '../types/ranking';
 
 export default function HomePage() {
     const navigate = useNavigate();
@@ -76,22 +77,51 @@ export default function HomePage() {
                 {/* Header */}
                 <header className="dashboard-header">
                     <div>
-                        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-primary)', marginBottom: 4 }}>세계 여행을 위한 {currentUserName}의 영어 공부</h1>
+                        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-primary)', marginBottom: 4 }}>
+                            세계 여행을 위한{' '}
+                            <span
+                                style={{
+                                    color: '#6366f1',
+                                    fontWeight: 900,
+                                    fontSize: '1.15em',
+                                    textShadow: '0 2px 6px rgba(99, 102, 241, 0.3)',
+                                    display: 'inline-block',
+                                    padding: '2px 6px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                                }}
+                            >
+                                {currentUserName}
+                            </span>
+                            의 영어 공부
+                        </h1>
                         <p style={{ fontSize: 16, color: 'var(--color-slate)', fontWeight: 600 }}>Word Game</p>
                     </div>
                     <div className="user-profile">
-                        <div style={{ textAlign: 'right', marginRight: 8 }}>
+                        <div style={{ textAlign: 'right', marginRight: 16 }}>
                             <div style={{ fontSize: 14, color: 'var(--color-slate)', fontWeight: 700 }}>HELLO</div>
                             <div style={{ fontSize: 18, fontWeight: 800 }}>{currentUserName}</div>
                         </div>
-                        <button
-                            className="avatar-circle"
-                            onClick={() => switchUser(currentUserName === '열음이' ? '지음이' : '열음이')}
-                            title="사용자 변경"
-                            style={{ cursor: 'pointer' }}
-                        >
-                            {currentUserName[0]}
-                        </button>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {(['열음이', '지음이', '규진이', '규선이'] as UserName[]).map((userName) => (
+                                <button
+                                    key={userName}
+                                    className="avatar-circle"
+                                    onClick={() => switchUser(userName)}
+                                    title={userName}
+                                    style={{
+                                        cursor: 'pointer',
+                                        opacity: currentUserName === userName ? 1 : 0.5,
+                                        transform: currentUserName === userName ? 'scale(1.1)' : 'scale(1)',
+                                        transition: 'all 0.2s ease',
+                                        border: currentUserName === userName ? '2px solid var(--color-primary)' : '2px solid transparent',
+                                    }}
+                                >
+                                    {userName[0]}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </header>
 

@@ -1,7 +1,9 @@
+export type UserName = '열음이' | '지음이' | '규진이' | '규선이';
+
 export interface RankingRecord {
   id: string;
   quizType: 'imageQuiz' | 'spellingQuiz' | 'meaningQuiz' | 'combinedQuiz' | 'listeningQuiz' | 'spellingGame' | 'fillBlankGame' | 'sentenceGame' | 'bossRaid' | 'memoryGame' | 'speedChallenge';
-  userName: '열음이' | '지음이';
+  userName: UserName;
   score: number;
   totalQuestions: number;
   totalTimeMs: number; // 전체 풀이 시간 (밀리초)

@@ -153,15 +153,39 @@ export const getRankingsByQuiz = async (
       query = query.eq('question_count', countStr);
     }
 
-    const { data, error } = await query
-      .order('total_time_ms', { ascending: true }); // 시간이 짧은 순
+    let orderedQuery;
+    if (quizType === 'memoryGame') {
+      // 메모리 게임: 복합 점수로 정렬 (클라이언트 측에서 계산)
+      orderedQuery = query.order('created_at', { ascending: false });
+    } else if (quizType === 'speedChallenge') {
+      // 스피드 챌린지: 점수 내림차순, 동점 시 시간 오름차순
+      orderedQuery = query
+        .order('score', { ascending: false })
+        .order('total_time_ms', { ascending: true });
+    } else {
+      // 기존 로직: 시간이 짧은 순
+      orderedQuery = query.order('total_time_ms', { ascending: true });
+    }
+
+    const { data, error } = await orderedQuery;
 
     if (error) {
       console.error('순위 조회 실패:', error);
       return [];
     }
 
-    return (data || []).map(mapSupabaseRowToRecord);
+    let records = (data || []).map(mapSupabaseRowToRecord);
+    
+    // 메모리 게임: 복합 점수로 정렬
+    if (quizType === 'memoryGame') {
+      records = records.sort((a, b) => {
+        const scoreA = calculateMemoryGameScore(a.totalQuestions, a.totalTimeMs, a.score);
+        const scoreB = calculateMemoryGameScore(b.totalQuestions, b.totalTimeMs, b.score);
+        return scoreB - scoreA; // 점수가 높은 순
+      });
+    }
+
+    return records;
   } catch (error) {
     console.error('순위 조회 중 오류:', error);
     return [];
@@ -179,23 +203,40 @@ export const getAllRankings = async (): Promise<RankingDisplay[]> => {
     { type: 'fillBlankGame', name: '빈칸 채우기 게임' },
     { type: 'sentenceGame', name: '영어 문장 만들기' },
     { type: 'combinedQuiz', name: '종합 퀴즈' },
-    { type: 'bossRaid', name: '보스 레이드' },
+    { type: 'bossRaid', name: '외계인 침공' },
     { type: 'memoryGame', name: '단어 메모리 게임' },
     { type: 'speedChallenge', name: '단어 스피드 챌린지' },
   ];
   const questionCounts: Array<number | 'infinite'> = [10, 20, 30, 'infinite'];
+  // 스피드 챌린지용 시간 제한 옵션
+  const speedTimeLimits: number[] = [10, 20, 30, 60, 120];
 
   const result: RankingDisplay[] = [];
   
   for (const { type, name } of quizTypes) {
-    for (const count of questionCounts) {
-      const records = await getRankingsByQuiz(type, count);
-      if (records.length > 0) {
-        result.push({
-          quizType: type,
-          quizName: `${name} (${count === 'infinite' ? '무제한' : `${count}문제`})`,
-          records: records.slice(0, 10), // 상위 10개만
-        });
+    if (type === 'speedChallenge') {
+      // 스피드 챌린지: 시간 제한별로 분리
+      for (const timeLimit of speedTimeLimits) {
+        const records = await getRankingsByQuiz(type, timeLimit);
+        if (records.length > 0) {
+          result.push({
+            quizType: type,
+            quizName: `${name} (${timeLimit}초)`,
+            records: records.slice(0, 10), // 상위 10개만
+          });
+        }
+      }
+    } else {
+      // 다른 게임: 문제수별로 분리
+      for (const count of questionCounts) {
+        const records = await getRankingsByQuiz(type, count);
+        if (records.length > 0) {
+          result.push({
+            quizType: type,
+            quizName: `${name} (${count === 'infinite' ? '무제한' : `${count}문제`})`,
+            records: records.slice(0, 10), // 상위 10개만
+          });
+        }
       }
     }
   }
@@ -214,14 +255,22 @@ export const getUserBestRecord = async (
   return userRankings.length > 0 ? userRankings[0] : null;
 };
 
+// 메모리 게임 복합 점수 계산 (시간 + 이동 횟수)
+const calculateMemoryGameScore = (questionCount: number, totalTimeMs: number, moves: number): number => {
+  // 점수 = (문제 수 * 1000) / (시간(초) + 이동 횟수 * 100)
+  const timeSec = totalTimeMs / 1000;
+  return (questionCount * 1000) / (timeSec + moves * 100);
+};
+
 // 신기록인지 확인 (문제수별)
 export const isNewRecord = async (
   quizType: RankingRecord['quizType'],
   totalTimeMs: number,
   accuracy: number,
-  questionCount: number | 'infinite'
+  questionCount: number | 'infinite',
+  moves?: number // 메모리 게임용 이동 횟수
 ): Promise<boolean> => {
-  console.log('신기록 확인:', { quizType, totalTimeMs, accuracy, questionCount });
+  console.log('신기록 확인:', { quizType, totalTimeMs, accuracy, questionCount, moves });
   
   if (accuracy !== 100) {
     console.log('100% 정답률이 아니어서 신기록 아님');
@@ -231,7 +280,30 @@ export const isNewRecord = async (
   const userBest = await getUserBestRecord(quizType, questionCount);
   console.log('사용자 최고 기록 (문제수별):', userBest);
   
-  const isNew = !userBest || totalTimeMs < userBest.totalTimeMs;
+  let isNew: boolean;
+  
+  if (quizType === 'memoryGame' && typeof questionCount === 'number' && moves !== undefined) {
+    // 메모리 게임: 복합 점수로 비교
+    const currentScore = calculateMemoryGameScore(questionCount, totalTimeMs, moves);
+    const bestScore = userBest 
+      ? calculateMemoryGameScore(userBest.totalQuestions, userBest.totalTimeMs, userBest.score)
+      : 0;
+    isNew = !userBest || currentScore > bestScore;
+    console.log('메모리 게임 복합 점수 비교:', { currentScore, bestScore, isNew });
+  } else if (quizType === 'speedChallenge') {
+    // 스피드 챌린지: 점수(맞춘 개수)가 높을수록 좋음, 동점 시 시간이 짧을수록 좋음
+    // totalTimeMs는 실제 사용한 시간이 아니라 남은 시간이므로, score를 비교
+    // 하지만 score는 이미 기록에 저장되어 있으므로, 여기서는 moves를 score로 전달받아야 함
+    // 실제로는 createRecordFromQuizResult에서 score에 맞춘 개수를 저장하므로
+    // userBest.score와 비교하면 됨
+    const currentScore = moves || 0; // moves 대신 실제 맞춘 개수를 전달받아야 함
+    isNew = !userBest || currentScore > userBest.score || (currentScore === userBest.score && totalTimeMs < userBest.totalTimeMs);
+    console.log('스피드 챌린지 점수 비교:', { currentScore, bestScore: userBest?.score, isNew });
+  } else {
+    // 기존 로직: 시간이 짧을수록 좋음
+    isNew = !userBest || totalTimeMs < userBest.totalTimeMs;
+  }
+  
   console.log('신기록 여부:', isNew);
   
   return isNew;

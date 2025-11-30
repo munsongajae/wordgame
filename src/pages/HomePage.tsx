@@ -177,6 +177,12 @@ export default function HomePage() {
                             <div className="game-desc">나의 순위를 확인합니다.</div>
                             <button className="btn btn-outline" style={{ width: '100%' }}>확인하기</button>
                         </div>
+                        <div className="game-card" onClick={() => navigate('/board')}>
+                            <div className="game-icon">💬</div>
+                            <div className="game-title">게시판</div>
+                            <div className="game-desc">자유롭게 이야기를 나눕니다.</div>
+                            <button className="btn btn-outline" style={{ width: '100%' }}>이동하기</button>
+                        </div>
                     </div>
                 </section>
 

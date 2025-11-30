@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { TTSSettings, DEFAULT_TTS_SETTINGS } from '../utils/constants';
 import { getTTSSettings, saveTTSSettings } from '../utils/tts';
 import { getItem, setItem } from '../utils/storage';
+import { setCurrentUserByName } from '../services/supabaseClient';
+import { UserName } from '../types/ranking';
 
 interface UserContextValue {
     currentUserName: string;
@@ -26,7 +28,10 @@ interface UserProviderProps {
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const [currentUserName, setCurrentUserName] = useState<string>(() => {
-        return getItem<string>('currentUser') || '열음이';
+        const userName = getItem<string>('currentUser') || '열음이';
+        // 초기 로드 시에도 사용자 ID 설정
+        setCurrentUserByName(userName as UserName);
+        return userName;
     });
 
     const [ttsSettings, setTtsSettings] = useState<TTSSettings>(() => {
@@ -36,6 +41,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const switchUser = useCallback((userName: string) => {
         setCurrentUserName(userName);
         setItem('currentUser', userName);
+        // Supabase 사용자 ID도 업데이트
+        setCurrentUserByName(userName as UserName);
     }, []);
 
     const updateTTSSettings = useCallback((settings: TTSSettings) => {

@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import WordListPage from './pages/WordListPage';
 import DashboardPage from './pages/DashboardPage';
 import RankingPage from './pages/RankingPage';
+import BoardPage from './pages/BoardPage';
 import { QuizRoutes } from './routes/QuizRoutes';
 import { GameRoutes } from './routes/GameRoutes';
 import './App.css';
@@ -22,6 +23,7 @@ function App() {
             <Route path="/game/*" element={<GameRoutes />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/ranking" element={<RankingPage />} />
+            <Route path="/board" element={<BoardPage />} />
           </Routes>
         </WordsProvider>
       </UserProvider>

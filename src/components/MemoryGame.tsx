@@ -212,9 +212,10 @@ const MemoryGame: React.FC = () => {
       (async () => {
         try {
           if (accuracy === 100) {
+            // 메모리 게임: score에 moves(이동 횟수)를 저장
             const record = createRecordFromQuizResult(
               'memoryGame',
-              matchedPairs,
+              moves, // score에 moves 저장
               questionCount,
               gameStartTime,
               Date.now(),
@@ -222,8 +223,8 @@ const MemoryGame: React.FC = () => {
             );
             const success = await addRecord(record);
             if (success) {
-              // 신기록인지 확인하여 UI 피드백
-              const isNew = await isNewRecord('memoryGame', totalTimeMs, accuracy, questionCount);
+              // 신기록인지 확인하여 UI 피드백 (moves 전달)
+              const isNew = await isNewRecord('memoryGame', totalTimeMs, accuracy, questionCount, moves);
               if (isNew) {
                 setShowNewRecord(true);
               }

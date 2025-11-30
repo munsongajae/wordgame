@@ -129,11 +129,29 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
             <button 
               onClick={() => {
                 const quizType = quizName.includes('그림') ? 'imageQuiz' : 
-                               quizName.includes('철자') ? 'spellingQuiz' : 
-                               quizName.includes('뜻') ? 'meaningQuiz' : 'combinedQuiz';
-                const questionCount = quizName.includes('10문제') ? 10 : 
-                                    quizName.includes('20문제') ? 20 : 
-                                    quizName.includes('30문제') ? 30 : 'infinite';
+                               quizName.includes('철자 보고') ? 'spellingQuiz' :
+                               quizName.includes('철자 조합') ? 'spellingGame' :
+                               quizName.includes('빈칸 채우기') ? 'fillBlankGame' :
+                               quizName.includes('영어 문장 만들기') ? 'sentenceGame' :
+                               quizName.includes('외계인 침공') ? 'bossRaid' :
+                               quizName.includes('단어 메모리') ? 'memoryGame' :
+                               quizName.includes('단어 스피드') ? 'speedChallenge' :
+                               quizName.includes('뜻') ? 'meaningQuiz' :
+                               quizName.includes('듣기') ? 'listeningQuiz' : 'combinedQuiz';
+                let questionCount: number | 'infinite';
+                if (quizType === 'speedChallenge') {
+                  // 스피드 챌린지: 시간 제한으로 해석
+                  questionCount = quizName.includes('10초') ? 10 :
+                                 quizName.includes('20초') ? 20 :
+                                 quizName.includes('30초') ? 30 :
+                                 quizName.includes('60초') ? 60 :
+                                 quizName.includes('120초') ? 120 : 60;
+                } else {
+                  // 다른 게임: 문제 수로 해석
+                  questionCount = quizName.includes('10문제') ? 10 : 
+                                 quizName.includes('20문제') ? 20 : 
+                                 quizName.includes('30문제') ? 30 : 'infinite';
+                }
                 handleClearQuizCount(quizType, questionCount);
               }}
               style={{
@@ -178,16 +196,45 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
                       {record.userName}
                     </div>
                     <div style={{ fontSize: '14px', color: '#666' }}>
-                      {record.questionCount === 'infinite' ? '무제한' : `${record.questionCount}문제`} • {formatDate(record.date)}
+                      {record.quizType === 'speedChallenge' 
+                        ? `${record.questionCount}초` 
+                        : record.questionCount === 'infinite' 
+                          ? '무제한' 
+                          : `${record.questionCount}문제`} • {formatDate(record.date)}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#28a745' }}>
-                      {formatTime(record.totalTimeMs)}
-                    </div>
-                    <div style={{ fontSize: '14px', color: '#666' }}>
-                      {record.score}/{record.totalQuestions}
-                    </div>
+                    {record.quizType === 'speedChallenge' ? (
+                      // 스피드 챌린지: 점수(맞춘 개수) 표시
+                      <>
+                        <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#28a745' }}>
+                          {record.score}개
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666' }}>
+                          {formatTime(record.totalTimeMs)}
+                        </div>
+                      </>
+                    ) : record.quizType === 'memoryGame' ? (
+                      // 메모리 게임: 이동 횟수와 시간 표시
+                      <>
+                        <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#28a745' }}>
+                          {formatTime(record.totalTimeMs)}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666' }}>
+                          {record.score}회 이동
+                        </div>
+                      </>
+                    ) : (
+                      // 다른 게임: 기존 표시
+                      <>
+                        <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#28a745' }}>
+                          {formatTime(record.totalTimeMs)}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666' }}>
+                          {record.score}/{record.totalQuestions}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -246,11 +293,26 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
                                  quizData.quizName.includes('철자 보고') ? 'spellingQuiz' :
                                  quizData.quizName.includes('철자 조합') ? 'spellingGame' :
                                  quizData.quizName.includes('빈칸 채우기') ? 'fillBlankGame' : 
+                                 quizData.quizName.includes('영어 문장 만들기') ? 'sentenceGame' :
+                                 quizData.quizName.includes('보스 레이드') ? 'bossRaid' :
+                                 quizData.quizName.includes('단어 메모리') ? 'memoryGame' :
+                                 quizData.quizName.includes('단어 스피드') ? 'speedChallenge' :
                                  quizData.quizName.includes('뜻') ? 'meaningQuiz' :
                                  quizData.quizName.includes('듣기') ? 'listeningQuiz' : 'combinedQuiz';
-                  const questionCount = quizData.quizName.includes('10문제') ? 10 : 
-                                      quizData.quizName.includes('20문제') ? 20 : 
-                                      quizData.quizName.includes('30문제') ? 30 : 'infinite';
+                  let questionCount: number | 'infinite';
+                  if (quizType === 'speedChallenge') {
+                    // 스피드 챌린지: 시간 제한으로 해석
+                    questionCount = quizData.quizName.includes('10초') ? 10 :
+                                   quizData.quizName.includes('20초') ? 20 :
+                                   quizData.quizName.includes('30초') ? 30 :
+                                   quizData.quizName.includes('60초') ? 60 :
+                                   quizData.quizName.includes('120초') ? 120 : 60;
+                  } else {
+                    // 다른 게임: 문제 수로 해석
+                    questionCount = quizData.quizName.includes('10문제') ? 10 : 
+                                   quizData.quizName.includes('20문제') ? 20 : 
+                                   quizData.quizName.includes('30문제') ? 30 : 'infinite';
+                  }
                   handleClearQuizCount(quizType, questionCount);
                 }}
                 style={{
@@ -308,12 +370,37 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#28a745', marginBottom: '2px' }}>
-                        {formatTime(record.totalTimeMs)}
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#666' }}>
-                        {record.score}/{record.totalQuestions} (100%)
-                      </div>
+                      {record.quizType === 'speedChallenge' ? (
+                        // 스피드 챌린지: 점수(맞춘 개수) 표시
+                        <>
+                          <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#28a745', marginBottom: '2px' }}>
+                            {record.score}개
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#666' }}>
+                            {formatTime(record.totalTimeMs)}
+                          </div>
+                        </>
+                      ) : record.quizType === 'memoryGame' ? (
+                        // 메모리 게임: 이동 횟수와 시간 표시
+                        <>
+                          <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#28a745', marginBottom: '2px' }}>
+                            {formatTime(record.totalTimeMs)}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#666' }}>
+                            {record.score}회 이동 (100%)
+                          </div>
+                        </>
+                      ) : (
+                        // 다른 게임: 기존 표시
+                        <>
+                          <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#28a745', marginBottom: '2px' }}>
+                            {formatTime(record.totalTimeMs)}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#666' }}>
+                            {record.score}/{record.totalQuestions} (100%)
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -496,6 +583,51 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
           }}
         >
           종합
+        </button>
+        <button
+          onClick={() => setActiveTab('bossRaid')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'bossRaid' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'bossRaid' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          외계인 침공
+        </button>
+        <button
+          onClick={() => setActiveTab('memoryGame')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'memoryGame' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'memoryGame' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          메모리
+        </button>
+        <button
+          onClick={() => setActiveTab('speedChallenge')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'speedChallenge' ? '#1976d2' : '#f5f5f5',
+            color: activeTab === 'speedChallenge' ? '#fff' : '#333',
+            border: 'none',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          스피드
         </button>
       </div>
 

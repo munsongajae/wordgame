@@ -166,18 +166,19 @@ const SpeedChallenge: React.FC = () => {
     (async () => {
       try {
         if (accuracy === 100) {
+          // 스피드 챌린지: questionCount에 시간 제한 저장 (10초 = 10, 20초 = 20 등)
           const record = createRecordFromQuizResult(
             'speedChallenge',
-            score,
-            score,
+            score, // 맞춘 개수
+            score, // 총 문제 수 (맞춘 개수와 동일)
             gameStartTime,
             Date.now(),
-            'infinite'
+            selectedTimeLimit || 60 // questionCount에 시간 제한 저장
           );
           const success = await addRecord(record);
           if (success) {
-            // 신기록인지 확인하여 UI 피드백
-            const isNew = await isNewRecord('speedChallenge', totalTimeMs, accuracy, 'infinite');
+            // 신기록인지 확인하여 UI 피드백 (score를 moves 파라미터로 전달)
+            const isNew = await isNewRecord('speedChallenge', totalTimeMs, accuracy, selectedTimeLimit || 60, score);
             if (isNew) {
               setShowNewRecord(true);
             }

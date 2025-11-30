@@ -49,6 +49,7 @@ const BossRaid: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(PHASE_TIME_SEC);
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const scoreRef = useRef(0); // 점수를 ref로도 추적하여 비동기 업데이트 문제 해결
   const [finished, setFinished] = useState(false);
   const [questionCount] = useState(10);
   const [quizStartTime, setQuizStartTime] = useState(0);
@@ -109,7 +110,7 @@ const BossRaid: React.FC = () => {
       else if (type === 'wrong') src = '/wrong.mp3';
       else if (type === 'record') src = '/record.mp3';
       else if (type === 'explosion') src = '/explosion.mp3';
-      // else if (type === 'laser') src = '/laser.mp3'; // Optional
+      else if (type === 'laser') src = '/laser.mp3';
 
       if (src) {
         const audio = new Audio(src);
@@ -125,6 +126,7 @@ const BossRaid: React.FC = () => {
     setPhaseIndex(0);
     setFinished(false);
     setScore(0);
+    scoreRef.current = 0; // ref도 초기화
     setBossHp(BOSS_MAX_HP);
     setSelected(null);
     setInvaders([]);
@@ -253,6 +255,7 @@ const BossRaid: React.FC = () => {
     const endY = invader.y + 70; // Center of invader (approx)
 
     // Fire laser
+    playSound('laser'); // 레이저 발사 효과음
     const laserId = `laser-${Date.now()}`;
     setLasers(prev => [...prev, {
       id: laserId,
@@ -269,7 +272,11 @@ const BossRaid: React.FC = () => {
 
     if (isCorrect) {
       setBossHp(prev => Math.max(0, prev - 1));
-      setScore(prev => prev + 1);
+      setScore(prev => {
+        const newScore = prev + 1;
+        scoreRef.current = newScore; // ref도 동시에 업데이트
+        return newScore;
+      });
 
       // Delay explosion slightly to match laser hit
       setTimeout(() => {
@@ -343,18 +350,20 @@ const BossRaid: React.FC = () => {
     setFinished(true);
     stopBgm();
     const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
-    saveSession({ mode: 'bossRaid', score, total: questionCount, durationSec }).then(id => {
+    // ref에서 최신 점수를 가져와서 사용 (비동기 상태 업데이트 문제 해결)
+    const finalScore = scoreRef.current || score;
+    saveSession({ mode: 'bossRaid', score: finalScore, total: questionCount, durationSec }).then(id => {
       sessionIdRef.current = id;
     });
     const totalTimeMs = durationSec * 1000;
-    const accuracy = Math.round((score / questionCount) * 100);
+    const accuracy = Math.round((finalScore / questionCount) * 100);
     // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
     (async () => {
       try {
         if (accuracy === 100) {
           const record = createRecordFromQuizResult(
             'bossRaid',
-            score,
+            finalScore,
             questionCount,
             quizStartTime,
             Date.now(),
@@ -385,6 +394,7 @@ const BossRaid: React.FC = () => {
       setQuizStartTime(Date.now());
       setBossHp(BOSS_MAX_HP);
       setScore(0);
+      scoreRef.current = 0; // ref도 초기화
     }
   }, [phaseIndex, finished]);
 
@@ -436,7 +446,9 @@ const BossRaid: React.FC = () => {
 
   // End Screen
   if (finished) {
-    const accuracy = Math.round((score / questionCount) * 100);
+    // ref에서 최신 점수를 가져와서 사용 (비동기 상태 업데이트 문제 해결)
+    const finalScore = scoreRef.current || score;
+    const accuracy = Math.round((finalScore / questionCount) * 100);
     const isVictory = bossHp > 0; // If HP > 0 after all questions, or if we define victory differently. Actually usually bossHp <= 0 means we killed the boss, but here bossHp is OUR hp?
     // Wait, original logic: bossHp was "Boss HP". "오답 침공자가 지구에 도달하면 보스 HP 감소" -> This implies bossHp is actually Earth's HP or Player's HP.
     // However, `setBossHp(prev => Math.max(0, prev - 1))` when CORRECT answer implies damaging the BOSS.
@@ -451,12 +463,12 @@ const BossRaid: React.FC = () => {
       <div className="boss-raid-container">
         <div className="boss-raid-overlay">
           <div className="end-screen">
-            <h2>{score >= 7 ? '🎉 MISSION ACCOMPLISHED' : '💥 MISSION FAILED'}</h2>
+            <h2>{finalScore >= 7 ? '🎉 MISSION ACCOMPLISHED' : '💥 MISSION FAILED'}</h2>
             {showNewRecord && <div style={{ color: '#ffd700', fontWeight: 800, marginBottom: 16 }}>🏆 NEW RECORD!</div>}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, margin: '24px 0' }}>
               <div>
-                <div style={{ fontSize: 36, fontWeight: 'bold', color: '#00d2ff' }}>{score}</div>
+                <div style={{ fontSize: 36, fontWeight: 'bold', color: '#00d2ff' }}>{finalScore}</div>
                 <div style={{ color: '#aaa' }}>SCORE</div>
               </div>
               <div>
@@ -479,7 +491,7 @@ const BossRaid: React.FC = () => {
       <div className="boss-raid-overlay">
         <div className="boss-top">
           <div className="boss-side-column">
-            <button className="btn-space-outline boss-abort-btn" onClick={handleAbort}>ABORT</button>
+            <button className="btn-space-outline boss-abort-btn" onClick={handleAbort}>뒤로가기</button>
             <div className="boss-score-panel boss-score-compact">
               <span>SCORE</span>
               <strong>{score}</strong>

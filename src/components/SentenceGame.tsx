@@ -456,7 +456,20 @@ const SentenceGame: React.FC = () => {
           {gameSetup?.correctOrder.map((word, index) => {
             const isPreFilled = gameSetup.articleWords.includes(word);
             if (isPreFilled) {
-              return <div key={`pre-${index}`} className="word-chip selected" style={{ cursor: 'default' }}>{word}</div>;
+              return (
+                <div 
+                  key={`pre-${index}`} 
+                  className="word-chip" 
+                  style={{ 
+                    cursor: 'default',
+                    backgroundColor: 'var(--color-ash)',
+                    color: 'var(--color-ink)',
+                    borderStyle: 'dashed'
+                  }}
+                >
+                  {word}
+                </div>
+              );
             }
 
             let nonArticleIndex = -1;

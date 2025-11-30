@@ -5,6 +5,7 @@ import { useUser } from '../contexts/UserContext';
 import { loadRankings } from '../services/rankingService';
 import { RankingRecord, UserName } from '../types/ranking';
 import { getSupabase } from '../services/supabaseClient';
+import { deleteAllRecords, deleteRecordsByDate } from '../services/dashboardService';
 import './DashboardPage.css';
 
 const GAME_NAMES: Record<string, string> = {
@@ -16,7 +17,7 @@ const GAME_NAMES: Record<string, string> = {
     fillBlankGame: '빈칸 채우기',
     sentenceGame: '문장 만들기',
     combinedQuiz: '종합 퀴즈',
-    bossRaid: '보스 레이드',
+    bossRaid: '외계인 침공',
     memoryGame: '메모리 게임',
     speedChallenge: '스피드 챌린지'
 };
@@ -27,89 +28,11 @@ export default function DashboardPage() {
     const [records, setRecords] = useState<RankingRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<string>('');
+    const [isDeleting, setIsDeleting] = useState(false);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                setIsLoading(true);
-                setError(null);
-                console.log('대시보드 데이터 로드 시작, 현재 사용자:', currentUserName);
-                
-                // rankings 테이블에서 데이터 로드
-                const allRankings = await loadRankings();
-                console.log('전체 랭킹 데이터:', allRankings);
-                
-                // sessions 테이블에서도 데이터 로드 (100%가 아닌 기록도 포함)
-                const supabase = getSupabase();
-                const userIdMap: Record<string, string> = {
-                    '열음이': '11111111-1111-1111-1111-111111111111',
-                    '지음이': '22222222-2222-2222-2222-222222222222',
-                    '규진이': '33333333-3333-3333-3333-333333333333',
-                    '규선이': '44444444-4444-4444-4444-444444444444'
-                };
-                const currentUserId = userIdMap[currentUserName];
-                
-                let sessionRecords: RankingRecord[] = [];
-                if (supabase && currentUserId) {
-                    const { data: sessions, error } = await supabase
-                        .from('sessions')
-                        .select('*')
-                        .eq('user_id', currentUserId)
-                        .order('created_at', { ascending: false });
-                    
-                    if (!error && sessions) {
-                        sessionRecords = sessions.map(session => {
-                            const accuracy = Math.round((session.score / session.total) * 100);
-                            return {
-                                id: session.id,
-                                quizType: session.mode as RankingRecord['quizType'],
-                                userName: currentUserName as UserName,
-                                score: session.score,
-                                totalQuestions: session.total,
-                                totalTimeMs: (session.duration_sec || 0) * 1000,
-                                accuracy: accuracy,
-                                date: session.created_at,
-                                questionCount: 'infinite' as const // sessions 테이블에는 question_count가 없으므로 기본값
-                            };
-                        });
-                    }
-                }
-                
-                // rankings와 sessions 데이터 합치기 (rankings 우선)
-                const rankingsMap = new Map<string, RankingRecord>();
-                
-                // 1. rankings 데이터를 먼저 추가 (100% 정답률 기록)
-                allRankings.forEach(r => {
-                    if (r.userName === currentUserName) {
-                        rankingsMap.set(r.id, r);
-                    }
-                });
-                
-                // 2. sessions 데이터 추가 (rankings에 없는 경우만, 그리고 100점이 아닌 경우만)
-                sessionRecords.forEach(session => {
-                    // 같은 퀴즈 타입이고 같은 시간(5초 이내)인 기록이 rankings에 있는지 확인
-                    const hasMatchingRanking = Array.from(rankingsMap.values()).some(r => 
-                        r.quizType === session.quizType && 
-                        Math.abs(new Date(r.date).getTime() - new Date(session.date).getTime()) < 5000
-                    );
-                    
-                    // rankings에 매칭되는 기록이 없고, 100점이 아닌 경우만 추가
-                    if (!hasMatchingRanking && session.accuracy < 100) {
-                        rankingsMap.set(session.id, session);
-                    }
-                });
-                
-                const myRankings = Array.from(rankingsMap.values());
-                console.log('필터링된 기록 (rankings + sessions):', myRankings);
-                setRecords(myRankings);
-            } catch (err) {
-                console.error('대시보드 데이터 로드 실패:', err);
-                setError(err instanceof Error ? err.message : '데이터를 불러오는 중 오류가 발생했습니다.');
-            } finally {
-                setIsLoading(false);
-            }
-        })();
-    }, [currentUserName]);
 
     // 통계 계산
     const stats = useMemo(() => {
@@ -182,6 +105,153 @@ export default function DashboardPage() {
         return `${minutes}분 ${remainingSeconds}초`;
     };
 
+    const loadData = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+            console.log('대시보드 데이터 로드 시작, 현재 사용자:', currentUserName);
+            
+            // rankings 테이블에서 데이터 로드
+            const allRankings = await loadRankings();
+            console.log('전체 랭킹 데이터:', allRankings);
+            
+            // sessions 테이블에서도 데이터 로드 (100%가 아닌 기록도 포함)
+            const supabase = getSupabase();
+            const userIdMap: Record<string, string> = {
+                '열음이': '11111111-1111-1111-1111-111111111111',
+                '지음이': '22222222-2222-2222-2222-222222222222',
+                '규진이': '33333333-3333-3333-3333-333333333333',
+                '규선이': '44444444-4444-4444-4444-444444444444'
+            };
+            const currentUserId = userIdMap[currentUserName];
+            
+            let sessionRecords: RankingRecord[] = [];
+            if (supabase && currentUserId) {
+                const { data: sessions, error } = await supabase
+                    .from('sessions')
+                    .select('*')
+                    .eq('user_id', currentUserId)
+                    .order('created_at', { ascending: false });
+                
+                if (!error && sessions) {
+                    sessionRecords = sessions.map(session => {
+                        const accuracy = Math.round((session.score / session.total) * 100);
+                        return {
+                            id: session.id,
+                            quizType: session.mode as RankingRecord['quizType'],
+                            userName: currentUserName as UserName,
+                            score: session.score,
+                            totalQuestions: session.total,
+                            totalTimeMs: (session.duration_sec || 0) * 1000,
+                            accuracy: accuracy,
+                            date: session.created_at,
+                            questionCount: 'infinite' as const
+                        };
+                    });
+                }
+            }
+            
+            // rankings와 sessions 데이터 합치기 (rankings 우선)
+            const rankingsMap = new Map<string, RankingRecord>();
+            
+            // 1. rankings 데이터를 먼저 추가 (100% 정답률 기록)
+            allRankings.forEach(r => {
+                if (r.userName === currentUserName) {
+                    rankingsMap.set(r.id, r);
+                }
+            });
+            
+            // 2. sessions 데이터 추가 (rankings에 없는 경우만, 그리고 100점이 아닌 경우만)
+            sessionRecords.forEach(session => {
+                const hasMatchingRanking = Array.from(rankingsMap.values()).some(r => 
+                    r.quizType === session.quizType && 
+                    Math.abs(new Date(r.date).getTime() - new Date(session.date).getTime()) < 5000
+                );
+                
+                if (!hasMatchingRanking && session.accuracy < 100) {
+                    rankingsMap.set(session.id, session);
+                }
+            });
+            
+            const myRankings = Array.from(rankingsMap.values());
+            console.log('필터링된 기록 (rankings + sessions):', myRankings);
+            setRecords(myRankings);
+        } catch (err) {
+            console.error('대시보드 데이터 로드 실패:', err);
+            setError(err instanceof Error ? err.message : '데이터를 불러오는 중 오류가 발생했습니다.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, [currentUserName]);
+
+    const handleDeleteAll = async () => {
+        if (!window.confirm('정말 모든 학습 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const result = await deleteAllRecords(currentUserName as UserName);
+            if (result.success) {
+                alert('모든 학습 기록이 삭제되었습니다.');
+                setShowDeleteModal(false);
+                await loadData();
+            } else {
+                alert(`삭제 실패: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('삭제 중 오류:', error);
+            alert('삭제 중 오류가 발생했습니다.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleDeleteByDate = async () => {
+        if (!selectedDate) {
+            alert('날짜를 선택해주세요.');
+            return;
+        }
+
+        const date = new Date(selectedDate);
+        if (!window.confirm(`${date.toLocaleDateString('ko-KR')}의 모든 학습 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const result = await deleteRecordsByDate(currentUserName as UserName, date);
+            if (result.success) {
+                alert(`${date.toLocaleDateString('ko-KR')}의 학습 기록이 삭제되었습니다. (${result.deletedCount || 0}개)`);
+                setShowDatePicker(false);
+                setSelectedDate('');
+                await loadData();
+            } else {
+                alert(`삭제 실패: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('삭제 중 오류:', error);
+            alert('삭제 중 오류가 발생했습니다.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    // 기록이 있는 날짜 목록 추출
+    const availableDates = useMemo(() => {
+        const dateSet = new Set<string>();
+        records.forEach(record => {
+            const date = new Date(record.date);
+            const dateStr = date.toISOString().split('T')[0];
+            dateSet.add(dateStr);
+        });
+        return Array.from(dateSet).sort().reverse();
+    }, [records]);
+
     return (
         <div className="app-container">
             <QuizHeader title="학습 대시보드" onBack={() => navigate('/')} timeLeft={0} score={0} />
@@ -192,6 +262,23 @@ export default function DashboardPage() {
                         <h1>안녕하세요, {currentUserName}님! 👋</h1>
                         <p>오늘도 즐겁게 영어를 배워볼까요?</p>
                     </div>
+                    {records.length > 0 && (
+                        <div className="dashboard-actions">
+                            <button 
+                                className="btn-danger-outline" 
+                                onClick={() => setShowDeleteModal(true)}
+                                style={{ marginRight: '8px' }}
+                            >
+                                🗑️ 전체 초기화
+                            </button>
+                            <button 
+                                className="btn-danger-outline" 
+                                onClick={() => setShowDatePicker(true)}
+                            >
+                                📅 날짜별 삭제
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {isLoading ? (
@@ -270,6 +357,100 @@ export default function DashboardPage() {
                         <button className="empty-state-action" onClick={() => navigate('/game')}>
                             게임 하러 가기 🚀
                         </button>
+                    </div>
+                )}
+
+                {/* 삭제 모달 */}
+                {showDeleteModal && (
+                    <div className="modal-overlay" onClick={() => !isDeleting && setShowDeleteModal(false)}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                            <h3>전체 기록 삭제</h3>
+                            <p>모든 학습 기록을 삭제하시겠습니까?</p>
+                            <p style={{ color: '#d32f2f', fontSize: '0.9rem', marginTop: '8px' }}>
+                                ⚠️ 이 작업은 되돌릴 수 없습니다.
+                            </p>
+                            <div className="modal-actions">
+                                <button 
+                                    className="btn-danger" 
+                                    onClick={handleDeleteAll}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? '삭제 중...' : '삭제'}
+                                </button>
+                                <button 
+                                    className="btn-secondary" 
+                                    onClick={() => setShowDeleteModal(false)}
+                                    disabled={isDeleting}
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 날짜 선택 모달 */}
+                {showDatePicker && (
+                    <div className="modal-overlay" onClick={() => !isDeleting && setShowDatePicker(false)}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                            <h3>날짜별 기록 삭제</h3>
+                            <p>삭제할 날짜를 선택하세요.</p>
+                            <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="date-input"
+                                    max={new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                            {availableDates.length > 0 && (
+                                <div style={{ marginBottom: '16px' }}>
+                                    <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>
+                                        기록이 있는 날짜:
+                                    </p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {availableDates.slice(0, 10).map(date => (
+                                            <button
+                                                key={date}
+                                                className="date-chip"
+                                                onClick={() => setSelectedDate(date)}
+                                                style={{
+                                                    backgroundColor: selectedDate === date ? '#1976d2' : '#f5f5f5',
+                                                    color: selectedDate === date ? 'white' : '#333',
+                                                    border: `1px solid ${selectedDate === date ? '#1976d2' : '#ddd'}`,
+                                                    padding: '6px 12px',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem'
+                                                }}
+                                            >
+                                                {new Date(date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="modal-actions">
+                                <button 
+                                    className="btn-danger" 
+                                    onClick={handleDeleteByDate}
+                                    disabled={isDeleting || !selectedDate}
+                                >
+                                    {isDeleting ? '삭제 중...' : '삭제'}
+                                </button>
+                                <button 
+                                    className="btn-secondary" 
+                                    onClick={() => {
+                                        setShowDatePicker(false);
+                                        setSelectedDate('');
+                                    }}
+                                    disabled={isDeleting}
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

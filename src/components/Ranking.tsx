@@ -8,18 +8,30 @@ interface RankingProps {
 
 const Ranking: React.FC<RankingProps> = ({ onBack }) => {
   const [rankings, setRankings] = useState<RankingDisplay[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RankingRecord['quizType'] | 'all'>('all');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearType, setClearType] = useState<'all' | 'quiz' | 'quizCount'>('all');
   const [clearTarget, setClearTarget] = useState<{ quizType?: RankingRecord['quizType']; questionCount?: number | 'infinite' }>({});
 
-  useEffect(() => {
-    setRankings(getAllRankings());
-  }, []);
-
-  const loadRankings = () => {
-    setRankings(getAllRankings());
+  const loadRankings = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getAllRankings();
+      setRankings(data);
+    } catch (err) {
+      console.error('순위 로드 실패:', err);
+      setError('순위를 불러오는 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  useEffect(() => {
+    loadRankings();
+  }, []);
 
   const handleClearAll = () => {
     setClearType('all');
@@ -39,24 +51,29 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
     setShowClearConfirm(true);
   };
 
-  const confirmClear = () => {
-    switch (clearType) {
-      case 'all':
-        clearAllRankings();
-        break;
-      case 'quiz':
-        if (clearTarget.quizType) {
-          clearRankingsByQuiz(clearTarget.quizType);
-        }
-        break;
-      case 'quizCount':
-        if (clearTarget.quizType && clearTarget.questionCount !== undefined) {
-          clearRankingsByQuizAndCount(clearTarget.quizType, clearTarget.questionCount);
-        }
-        break;
+  const confirmClear = async () => {
+    try {
+      switch (clearType) {
+        case 'all':
+          await clearAllRankings();
+          break;
+        case 'quiz':
+          if (clearTarget.quizType) {
+            await clearRankingsByQuiz(clearTarget.quizType);
+          }
+          break;
+        case 'quizCount':
+          if (clearTarget.quizType && clearTarget.questionCount !== undefined) {
+            await clearRankingsByQuizAndCount(clearTarget.quizType, clearTarget.questionCount);
+          }
+          break;
+      }
+      await loadRankings();
+      setShowClearConfirm(false);
+    } catch (err) {
+      console.error('순위 초기화 실패:', err);
+      setError('순위 초기화 중 오류가 발생했습니다.');
     }
-    loadRankings();
-    setShowClearConfirm(false);
   };
 
   const formatTime = (ms: number): string => {
@@ -489,7 +506,31 @@ const Ranking: React.FC<RankingProps> = ({ onBack }) => {
         borderRadius: '12px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
       }}>
-        {activeTab === 'all' ? renderAllRankings() : renderQuizRankings(activeTab)}
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
+            <p style={{ color: '#666' }}>순위를 불러오는 중...</p>
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <p style={{ color: '#dc3545', marginBottom: '20px' }}>{error}</p>
+            <button
+              onClick={loadRankings}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : (
+          activeTab === 'all' ? renderAllRankings() : renderQuizRankings(activeTab)
+        )}
       </div>
 
       {/* 안내 문구 */}

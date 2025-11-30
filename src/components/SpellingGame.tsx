@@ -223,25 +223,35 @@ const SpellingGame: React.FC = () => {
         durationSec
       });
 
-      try {
-        const isNewRecordResult = isNewRecord('spellingGame', totalTimeMs, accuracy, questionCount || 'infinite');
-        if (isNewRecordResult) {
-          const record = createRecordFromQuizResult(
-            'spellingGame',
-            finalScore,
-            questions.length,
-            quizStartTime,
-            Date.now(),
-            questionCount || 'infinite'
-          );
-          addRecord(record);
-          setShowNewRecord(true);
-        } else {
-          setShowNewRecord(false);
+      // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+      (async () => {
+        try {
+          if (accuracy === 100) {
+            const record = createRecordFromQuizResult(
+              'spellingGame',
+              finalScore,
+              questions.length,
+              quizStartTime,
+              Date.now(),
+              questionCount || 'infinite'
+            );
+            const success = await addRecord(record);
+            if (success) {
+              // 신기록인지 확인하여 UI 피드백
+              const isNewRecordResult = await isNewRecord('spellingGame', totalTimeMs, accuracy, questionCount || 'infinite');
+              if (isNewRecordResult) {
+                setShowNewRecord(true);
+              } else {
+                setShowNewRecord(false);
+              }
+            }
+          } else {
+            setShowNewRecord(false);
+          }
+        } catch (e) {
+          console.warn('신기록 처리 중 오류(무시 가능):', e);
         }
-      } catch (e) {
-        console.warn('신기록 처리 중 오류(무시 가능):', e);
-      }
+      })();
 
       setFinished(true);
       

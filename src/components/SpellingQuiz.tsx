@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Word } from '../types/word';
 import { pickRandom } from '../utils/array';
@@ -26,6 +26,7 @@ export default function SpellingQuiz() {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const scoreRef = useRef(0); // 점수를 ref로도 추적하여 비동기 업데이트 문제 해결
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [finished, setFinished] = useState(false);
   const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
@@ -60,6 +61,7 @@ export default function SpellingQuiz() {
     setIndex(0);
     setSelected(null);
     setScore(0);
+    scoreRef.current = 0; // ref도 초기화
     setIsCorrect(null);
     setFinished(false);
     setWrongQuestions([]);
@@ -128,7 +130,11 @@ export default function SpellingQuiz() {
     setIsCorrect(correct);
 
     if (correct) {
-      setScore(s => s + 1);
+      setScore(s => {
+        const newScore = s + 1;
+        scoreRef.current = newScore; // ref도 동시에 업데이트
+        return newScore;
+      });
       playCorrect();
     } else {
       playWrong();
@@ -168,25 +174,33 @@ export default function SpellingQuiz() {
       setFinished(true);
       const totalTimeMs = Date.now() - quizStartTime;
       const durationSec = Math.round(totalTimeMs / 1000);
-      const accuracy = Math.round((score / questions.length) * 100);
+      // ref에서 최신 점수를 가져와서 사용 (비동기 상태 업데이트 문제 해결)
+      const finalScore = scoreRef.current || score;
+      const accuracy = Math.round((finalScore / questions.length) * 100);
 
-      saveQuizSession(score, questions.length, durationSec);
+      saveQuizSession(finalScore, questions.length, durationSec);
 
-      // 신기록 확인
-      if (isNewRecord('spellingQuiz', totalTimeMs, accuracy, questionCount || 'infinite')) {
-        const record = createRecordFromQuizResult(
-          'spellingQuiz',
-          score,
-          questions.length,
-          quizStartTime,
-          Date.now(),
-          questionCount || 'infinite'
-        );
-        const success = addRecord(record);
-        if (success) {
-          setIsNewRecordAchieved(true);
+      // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+      (async () => {
+        if (accuracy === 100) {
+          const record = createRecordFromQuizResult(
+            'spellingQuiz',
+            finalScore,
+            questions.length,
+            quizStartTime,
+            Date.now(),
+            questionCount || 'infinite'
+          );
+          const success = await addRecord(record);
+          if (success) {
+            // 신기록인지 확인하여 UI 피드백
+            const isNew = await isNewRecord('spellingQuiz', totalTimeMs, accuracy, questionCount || 'infinite');
+            if (isNew) {
+              setIsNewRecordAchieved(true);
+            }
+          }
         }
-      }
+      })();
       
       // 엔딩 사운드 재생 (신기록 여부와 관계없이)
       playRecord();

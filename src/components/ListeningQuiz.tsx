@@ -375,20 +375,27 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
           calculation: `(${finalScore} / ${questions.length}) * 100 = ${(finalScore / questions.length) * 100}`
         });
         
-        if (isNewRecord('listeningQuiz', totalTimeMs, accuracy, questionCount || 'infinite')) {
-          const record = createRecordFromQuizResult(
-            'listeningQuiz',
-            finalScore, // 최신 점수 사용
-            questions.length,
-            quizStartTime,
-            Date.now(),
-            questionCount || 'infinite'
-          );
-          const success = addRecord(record);
-          if (success) {
-            setIsNewRecordAchieved(true);
+        // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+        (async () => {
+          if (accuracy === 100) {
+            const record = createRecordFromQuizResult(
+              'listeningQuiz',
+              finalScore, // 최신 점수 사용
+              questions.length,
+              quizStartTime,
+              Date.now(),
+              questionCount || 'infinite'
+            );
+            const success = await addRecord(record);
+            if (success) {
+              // 신기록인지 확인하여 UI 피드백
+              const isNew = await isNewRecord('listeningQuiz', totalTimeMs, accuracy, questionCount || 'infinite');
+              if (isNew) {
+                setIsNewRecordAchieved(true);
+              }
+            }
           }
-        }
+        })();
         
         // 엔딩 사운드 재생 (신기록 여부와 관계없이)
         playRecordSound();

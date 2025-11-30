@@ -208,22 +208,31 @@ const MemoryGame: React.FC = () => {
       const totalTimeMs = durationSec * 1000;
       const accuracy = 100; // 메모리 게임은 완료 시 100%
       
-      try {
-        if (isNewRecord('memoryGame', totalTimeMs, accuracy, questionCount)) {
-          const record = createRecordFromQuizResult(
-            'memoryGame',
-            matchedPairs,
-            questionCount,
-            gameStartTime,
-            Date.now(),
-            questionCount
-          );
-          addRecord(record);
-          setShowNewRecord(true);
+      // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+      (async () => {
+        try {
+          if (accuracy === 100) {
+            const record = createRecordFromQuizResult(
+              'memoryGame',
+              matchedPairs,
+              questionCount,
+              gameStartTime,
+              Date.now(),
+              questionCount
+            );
+            const success = await addRecord(record);
+            if (success) {
+              // 신기록인지 확인하여 UI 피드백
+              const isNew = await isNewRecord('memoryGame', totalTimeMs, accuracy, questionCount);
+              if (isNew) {
+                setShowNewRecord(true);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('신기록 처리 중 오류(무시 가능):', e);
         }
-      } catch (e) {
-        console.warn('신기록 처리 중 오류(무시 가능):', e);
-      }
+      })();
     }
   }, [matchedPairs, questionCount, finished, gameStartTime, sessionId]);
 

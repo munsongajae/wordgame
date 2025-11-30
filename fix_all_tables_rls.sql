@@ -149,3 +149,4 @@ WHERE tablename IN ('progresses', 'sessions', 'attempts', 'sentence_problems')
 ORDER BY tablename, policyname;
 
 
+

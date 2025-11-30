@@ -112,26 +112,37 @@ const SentenceGame: React.FC = () => {
           durationSec
         });
 
-        try {
-          const totalTimeMs = durationSec * 1000;
-          const accuracy = Math.round(((typeof totalQuestions === 'number' && totalQuestions > 0 ? score / totalQuestions : 0) * 100));
-          if (isNewRecord('sentenceGame', totalTimeMs, accuracy, questionCount || 'infinite')) {
-            const record = createRecordFromQuizResult(
-              'sentenceGame',
-              score,
-              typeof totalQuestions === 'number' ? totalQuestions : 0,
-              startTimeRef.current,
-              endTime,
-              questionCount || 'infinite'
-            );
-            addRecord(record);
-            setShowNewRecord(true);
-          } else {
-            setShowNewRecord(false);
+        (async () => {
+          try {
+            const totalTimeMs = durationSec * 1000;
+            const accuracy = Math.round(((typeof totalQuestions === 'number' && totalQuestions > 0 ? score / totalQuestions : 0) * 100));
+            // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+            if (accuracy === 100) {
+              const record = createRecordFromQuizResult(
+                'sentenceGame',
+                score,
+                typeof totalQuestions === 'number' ? totalQuestions : 0,
+                startTimeRef.current,
+                endTime,
+                questionCount || 'infinite'
+              );
+              const success = await addRecord(record);
+              if (success) {
+                // 신기록인지 확인하여 UI 피드백
+                const isNew = await isNewRecord('sentenceGame', totalTimeMs, accuracy, questionCount || 'infinite');
+                if (isNew) {
+                  setShowNewRecord(true);
+                } else {
+                  setShowNewRecord(false);
+                }
+              }
+            } else {
+              setShowNewRecord(false);
+            }
+          } catch (e) {
+            console.warn('Ranking error:', e);
           }
-        } catch (e) {
-          console.warn('Ranking error:', e);
-        }
+        })();
       }
     } else {
       setCurrentIndex(nextIndex);

@@ -162,22 +162,31 @@ const SpeedChallenge: React.FC = () => {
     const totalTimeMs = durationSec * 1000;
     const accuracy = 100; // 스피드 챌린지는 시간 내 맞춘 것만 기록
     
-    try {
-      if (isNewRecord('speedChallenge', totalTimeMs, accuracy, 'infinite')) {
-        const record = createRecordFromQuizResult(
-          'speedChallenge',
-          score,
-          score,
-          gameStartTime,
-          Date.now(),
-          'infinite'
-        );
-        addRecord(record);
-        setShowNewRecord(true);
+    // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+    (async () => {
+      try {
+        if (accuracy === 100) {
+          const record = createRecordFromQuizResult(
+            'speedChallenge',
+            score,
+            score,
+            gameStartTime,
+            Date.now(),
+            'infinite'
+          );
+          const success = await addRecord(record);
+          if (success) {
+            // 신기록인지 확인하여 UI 피드백
+            const isNew = await isNewRecord('speedChallenge', totalTimeMs, accuracy, 'infinite');
+            if (isNew) {
+              setShowNewRecord(true);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('신기록 처리 중 오류(무시 가능):', e);
       }
-    } catch (e) {
-      console.warn('신기록 처리 중 오류(무시 가능):', e);
-    }
+    })();
   }, [timeLeft, score, sessionId, gameStartTime, selectedTimeLimit]);
 
   // 게임 시작

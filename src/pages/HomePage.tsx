@@ -99,28 +99,34 @@ export default function HomePage() {
                         <p style={{ fontSize: 16, color: 'var(--color-slate)', fontWeight: 600 }}>Word Game</p>
                     </div>
                     <div className="user-profile">
-                        <div style={{ textAlign: 'right', marginRight: 16 }}>
-                            <div style={{ fontSize: 14, color: 'var(--color-slate)', fontWeight: 700 }}>HELLO</div>
-                            <div style={{ fontSize: 18, fontWeight: 800 }}>{currentUserName}</div>
-                        </div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            {(['열음이', '지음이', '규진이', '규선이'] as UserName[]).map((userName) => (
-                                <button
-                                    key={userName}
-                                    className="avatar-circle"
-                                    onClick={() => switchUser(userName)}
-                                    title={userName}
-                                    style={{
-                                        cursor: 'pointer',
-                                        opacity: currentUserName === userName ? 1 : 0.5,
-                                        transform: currentUserName === userName ? 'scale(1.1)' : 'scale(1)',
-                                        transition: 'all 0.2s ease',
-                                        border: currentUserName === userName ? '2px solid var(--color-primary)' : '2px solid transparent',
-                                    }}
-                                >
-                                    {userName[0]}
-                                </button>
-                            ))}
+                            {(['열음이', '지음이', '규진이', '규선이'] as UserName[]).map((userName) => {
+                                // 규진이는 '진', 규선이는 '선'으로 표시
+                                let displayChar = userName[0];
+                                if (userName === '규진이') {
+                                    displayChar = '진';
+                                } else if (userName === '규선이') {
+                                    displayChar = '선';
+                                }
+                                
+                                return (
+                                    <button
+                                        key={userName}
+                                        className="avatar-circle"
+                                        onClick={() => switchUser(userName)}
+                                        title={userName}
+                                        style={{
+                                            cursor: 'pointer',
+                                            opacity: currentUserName === userName ? 1 : 0.5,
+                                            transform: currentUserName === userName ? 'scale(1.1)' : 'scale(1)',
+                                            transition: 'all 0.2s ease',
+                                            border: currentUserName === userName ? '2px solid var(--color-primary)' : '2px solid transparent',
+                                        }}
+                                    >
+                                        {displayChar}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </header>

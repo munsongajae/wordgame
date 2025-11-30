@@ -348,20 +348,31 @@ const BossRaid: React.FC = () => {
     });
     const totalTimeMs = durationSec * 1000;
     const accuracy = Math.round((score / questionCount) * 100);
-    try {
-      if (isNewRecord('bossRaid', totalTimeMs, accuracy, questionCount)) {
-        const record = createRecordFromQuizResult(
-          'bossRaid',
-          score,
-          questionCount,
-          quizStartTime,
-          Date.now(),
-          questionCount
-        );
-        addRecord(record);
-        setShowNewRecord(true);
+    // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
+    (async () => {
+      try {
+        if (accuracy === 100) {
+          const record = createRecordFromQuizResult(
+            'bossRaid',
+            score,
+            questionCount,
+            quizStartTime,
+            Date.now(),
+            questionCount
+          );
+          const success = await addRecord(record);
+          if (success) {
+            // 신기록인지 확인하여 UI 피드백
+            const isNew = await isNewRecord('bossRaid', totalTimeMs, accuracy, questionCount);
+            if (isNew) {
+              setShowNewRecord(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('랭킹 기록 실패:', err);
       }
-    } catch { }
+    })();
     playSound('record');
   };
 

@@ -1,70 +1,175 @@
 import { RankingRecord, RankingDisplay } from '../types/ranking';
-import { getCurrentUserName } from './supabaseClient';
+import { getCurrentUserName, getSupabase } from './supabaseClient';
 
-const STORAGE_KEY = 'quizRankings';
+// Supabase 테이블 타입 정의
+interface SupabaseRankingRow {
+  id: string;
+  quiz_type: string;
+  user_name: string;
+  score: number;
+  total_questions: number;
+  total_time_ms: number;
+  accuracy: number;
+  question_count: string;
+  created_at: string;
+  updated_at: string;
+}
 
-// 로컬 스토리지에서 순위 데이터 로드
-export const loadRankings = (): RankingRecord[] => {
+// Supabase 행을 RankingRecord로 변환
+const mapSupabaseRowToRecord = (row: SupabaseRankingRow): RankingRecord => {
+  return {
+    id: row.id,
+    quizType: row.quiz_type as RankingRecord['quizType'],
+    userName: row.user_name as RankingRecord['userName'],
+    score: row.score,
+    totalQuestions: row.total_questions,
+    totalTimeMs: row.total_time_ms,
+    accuracy: row.accuracy,
+    date: row.created_at,
+    questionCount: row.question_count === 'infinite' ? 'infinite' : parseInt(row.question_count, 10),
+  };
+};
+
+// RankingRecord를 Supabase 행으로 변환
+const mapRecordToSupabaseRow = (record: Omit<RankingRecord, 'id' | 'date'>) => {
+  return {
+    quiz_type: record.quizType,
+    user_name: record.userName,
+    score: record.score,
+    total_questions: record.totalQuestions,
+    total_time_ms: record.totalTimeMs,
+    accuracy: record.accuracy,
+    question_count: record.questionCount === 'infinite' ? 'infinite' : record.questionCount.toString(),
+  };
+};
+
+// 로컬 스토리지에서 순위 데이터 로드 (하위 호환성 유지, Supabase 실패 시 사용)
+export const loadRankings = async (): Promise<RankingRecord[]> => {
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.warn('Supabase가 연결되지 않아 로컬 스토리지에서 로드합니다.');
+    try {
+      const data = localStorage.getItem('quizRankings');
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error('순위 데이터 로드 실패:', error);
+      return [];
+    }
+  }
+
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    console.log('로컬 스토리지에서 순위 데이터 로드:', data);
-    const rankings = data ? JSON.parse(data) : [];
-    console.log('파싱된 순위 데이터:', rankings);
-    return rankings;
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase에서 순위 데이터 로드 실패:', error);
+      return [];
+    }
+
+    return (data || []).map(mapSupabaseRowToRecord);
   } catch (error) {
-    console.error('순위 데이터 로드 실패:', error);
+    console.error('순위 데이터 로드 중 오류:', error);
     return [];
   }
 };
 
-// 로컬 스토리지에 순위 데이터 저장
-export const saveRankings = (rankings: RankingRecord[]): void => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rankings));
-  } catch (error) {
-    console.error('Failed to save rankings:', error);
-  }
-};
-
 // 신기록 추가
-export const addRecord = (record: Omit<RankingRecord, 'id' | 'date'>): boolean => {
-  const rankings = loadRankings();
-  const newRecord: RankingRecord = {
-    ...record,
-    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    date: new Date().toISOString(),
-  };
-
-  console.log('순위 기록 시도:', newRecord);
-  console.log('정답률:', newRecord.accuracy);
+export const addRecord = async (record: Omit<RankingRecord, 'id' | 'date'>): Promise<boolean> => {
+  const supabase = getSupabase();
+  
+  console.log('순위 기록 시도:', record);
+  console.log('정답률:', record.accuracy);
 
   // 100% 정답률인 경우에만 기록
-  if (newRecord.accuracy === 100) {
-    rankings.push(newRecord);
-    saveRankings(rankings);
-    console.log('순위 기록 성공!');
-    return true;
+  if (record.accuracy !== 100) {
+    console.log('100% 정답률이 아니어서 기록되지 않음');
+    return false;
   }
-  
-  console.log('100% 정답률이 아니어서 기록되지 않음');
-  return false;
+
+  if (!supabase) {
+    console.warn('Supabase가 연결되지 않아 로컬 스토리지에 저장합니다.');
+    try {
+      const data = localStorage.getItem('quizRankings');
+      const rankings = data ? JSON.parse(data) : [];
+      const newRecord: RankingRecord = {
+        ...record,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        date: new Date().toISOString(),
+      };
+      rankings.push(newRecord);
+      localStorage.setItem('quizRankings', JSON.stringify(rankings));
+      console.log('로컬 스토리지에 순위 기록 성공!');
+      return true;
+    } catch (error) {
+      console.error('로컬 스토리지 저장 실패:', error);
+      return false;
+    }
+  }
+
+  try {
+    const row = mapRecordToSupabaseRow(record);
+    const { data, error } = await supabase
+      .from('rankings')
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase에 순위 기록 실패:', error);
+      return false;
+    }
+
+    console.log('Supabase에 순위 기록 성공!', data);
+    return true;
+  } catch (error) {
+    console.error('순위 기록 중 오류:', error);
+    return false;
+  }
 };
 
 // 퀴즈별 + 문제수별 순위 조회 (100% 정답률 기준, 시간 순 정렬)
-export const getRankingsByQuiz = (quizType: RankingRecord['quizType'], questionCount?: number | 'infinite'): RankingRecord[] => {
-  const rankings = loadRankings();
-  return rankings
-    .filter(record => {
-      const typeMatch = record.quizType === quizType;
-      if (questionCount === undefined) return typeMatch;
-      return typeMatch && record.questionCount === questionCount;
-    })
-    .sort((a, b) => a.totalTimeMs - b.totalTimeMs); // 시간이 짧은 순
+export const getRankingsByQuiz = async (
+  quizType: RankingRecord['quizType'],
+  questionCount?: number | 'infinite'
+): Promise<RankingRecord[]> => {
+  const supabase = getSupabase();
+  
+  if (!supabase) {
+    console.warn('Supabase가 연결되지 않아 빈 배열을 반환합니다.');
+    return [];
+  }
+
+  try {
+    let query = supabase
+      .from('rankings')
+      .select('*')
+      .eq('quiz_type', quizType)
+      .eq('accuracy', 100);
+
+    if (questionCount !== undefined) {
+      const countStr = questionCount === 'infinite' ? 'infinite' : questionCount.toString();
+      query = query.eq('question_count', countStr);
+    }
+
+    const { data, error } = await query
+      .order('total_time_ms', { ascending: true }); // 시간이 짧은 순
+
+    if (error) {
+      console.error('순위 조회 실패:', error);
+      return [];
+    }
+
+    return (data || []).map(mapSupabaseRowToRecord);
+  } catch (error) {
+    console.error('순위 조회 중 오류:', error);
+    return [];
+  }
 };
 
 // 전체 순위 조회 (모든 퀴즈 + 문제수별 통합)
-export const getAllRankings = (): RankingDisplay[] => {
-  loadRankings(); // 순위 데이터 로드 (필요시 사용)
+export const getAllRankings = async (): Promise<RankingDisplay[]> => {
   const quizTypes: Array<{ type: RankingRecord['quizType']; name: string }> = [
     { type: 'imageQuiz', name: '그림 보고 맞추기' },
     { type: 'spellingQuiz', name: '철자 보고 맞추기' },
@@ -82,9 +187,9 @@ export const getAllRankings = (): RankingDisplay[] => {
 
   const result: RankingDisplay[] = [];
   
-  quizTypes.forEach(({ type, name }) => {
-    questionCounts.forEach(count => {
-      const records = getRankingsByQuiz(type, count);
+  for (const { type, name } of quizTypes) {
+    for (const count of questionCounts) {
+      const records = await getRankingsByQuiz(type, count);
       if (records.length > 0) {
         result.push({
           quizType: type,
@@ -92,27 +197,30 @@ export const getAllRankings = (): RankingDisplay[] => {
           records: records.slice(0, 10), // 상위 10개만
         });
       }
-    });
-  });
+    }
+  }
 
   return result;
 };
 
 // 사용자의 최고 기록 조회 (문제수별)
-export const getUserBestRecord = (quizType: RankingRecord['quizType'], questionCount?: number | 'infinite'): RankingRecord | null => {
-  const userRankings = getRankingsByQuiz(quizType, questionCount)
-    .filter(record => record.userName === getCurrentUserName());
+export const getUserBestRecord = async (
+  quizType: RankingRecord['quizType'],
+  questionCount?: number | 'infinite'
+): Promise<RankingRecord | null> => {
+  const records = await getRankingsByQuiz(quizType, questionCount);
+  const userRankings = records.filter(record => record.userName === getCurrentUserName());
   
   return userRankings.length > 0 ? userRankings[0] : null;
 };
 
 // 신기록인지 확인 (문제수별)
-export const isNewRecord = (
+export const isNewRecord = async (
   quizType: RankingRecord['quizType'],
   totalTimeMs: number,
   accuracy: number,
   questionCount: number | 'infinite'
-): boolean => {
+): Promise<boolean> => {
   console.log('신기록 확인:', { quizType, totalTimeMs, accuracy, questionCount });
   
   if (accuracy !== 100) {
@@ -120,7 +228,7 @@ export const isNewRecord = (
     return false;
   }
   
-  const userBest = getUserBestRecord(quizType, questionCount);
+  const userBest = await getUserBestRecord(quizType, questionCount);
   console.log('사용자 최고 기록 (문제수별):', userBest);
   
   const isNew = !userBest || totalTimeMs < userBest.totalTimeMs;
@@ -161,25 +269,104 @@ export const createRecordFromQuizResult = (
 };
 
 // 전체 순위 초기화
-export const clearAllRankings = (): void => {
+export const clearAllRankings = async (): Promise<void> => {
   console.log('전체 순위 초기화');
-  localStorage.removeItem(STORAGE_KEY);
+  const supabase = getSupabase();
+  
+  if (!supabase) {
+    console.warn('Supabase가 연결되지 않아 로컬 스토리지만 초기화합니다.');
+    localStorage.removeItem('quizRankings');
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('rankings')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // 모든 행 삭제
+
+    if (error) {
+      console.error('순위 초기화 실패:', error);
+    } else {
+      console.log('순위 초기화 성공');
+    }
+  } catch (error) {
+    console.error('순위 초기화 중 오류:', error);
+  }
 };
 
 // 특정 퀴즈 타입의 순위 초기화
-export const clearRankingsByQuiz = (quizType: RankingRecord['quizType']): void => {
+export const clearRankingsByQuiz = async (quizType: RankingRecord['quizType']): Promise<void> => {
   console.log('퀴즈별 순위 초기화:', quizType);
-  const rankings = loadRankings();
-  const filteredRankings = rankings.filter(record => record.quizType !== quizType);
-  saveRankings(filteredRankings);
+  const supabase = getSupabase();
+  
+  if (!supabase) {
+    console.warn('Supabase가 연결되지 않아 로컬 스토리지만 초기화합니다.');
+    try {
+      const data = localStorage.getItem('quizRankings');
+      const rankings = data ? JSON.parse(data) : [];
+      const filteredRankings = rankings.filter((record: RankingRecord) => record.quizType !== quizType);
+      localStorage.setItem('quizRankings', JSON.stringify(filteredRankings));
+    } catch (error) {
+      console.error('로컬 스토리지 초기화 실패:', error);
+    }
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('rankings')
+      .delete()
+      .eq('quiz_type', quizType);
+
+    if (error) {
+      console.error('퀴즈별 순위 초기화 실패:', error);
+    } else {
+      console.log('퀴즈별 순위 초기화 성공');
+    }
+  } catch (error) {
+    console.error('퀴즈별 순위 초기화 중 오류:', error);
+  }
 };
 
 // 특정 퀴즈 타입 + 문제 수의 순위 초기화
-export const clearRankingsByQuizAndCount = (quizType: RankingRecord['quizType'], questionCount: number | 'infinite'): void => {
+export const clearRankingsByQuizAndCount = async (
+  quizType: RankingRecord['quizType'],
+  questionCount: number | 'infinite'
+): Promise<void> => {
   console.log('퀴즈별 + 문제수별 순위 초기화:', quizType, questionCount);
-  const rankings = loadRankings();
-  const filteredRankings = rankings.filter(record => 
-    !(record.quizType === quizType && record.questionCount === questionCount)
-  );
-  saveRankings(filteredRankings);
+  const supabase = getSupabase();
+  
+  if (!supabase) {
+    console.warn('Supabase가 연결되지 않아 로컬 스토리지만 초기화합니다.');
+    try {
+      const data = localStorage.getItem('quizRankings');
+      const rankings = data ? JSON.parse(data) : [];
+      const filteredRankings = rankings.filter(
+        (record: RankingRecord) =>
+          !(record.quizType === quizType && record.questionCount === questionCount)
+      );
+      localStorage.setItem('quizRankings', JSON.stringify(filteredRankings));
+    } catch (error) {
+      console.error('로컬 스토리지 초기화 실패:', error);
+    }
+    return;
+  }
+
+  try {
+    const countStr = questionCount === 'infinite' ? 'infinite' : questionCount.toString();
+    const { error } = await supabase
+      .from('rankings')
+      .delete()
+      .eq('quiz_type', quizType)
+      .eq('question_count', countStr);
+
+    if (error) {
+      console.error('퀴즈별 + 문제수별 순위 초기화 실패:', error);
+    } else {
+      console.log('퀴즈별 + 문제수별 순위 초기화 성공');
+    }
+  } catch (error) {
+    console.error('퀴즈별 + 문제수별 순위 초기화 중 오류:', error);
+  }
 };

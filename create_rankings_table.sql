@@ -75,3 +75,6 @@ FROM pg_tables
 WHERE tablename = 'rankings';
 
 
+
+
+

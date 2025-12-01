@@ -144,3 +144,6 @@ REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 - 4가지 퀴즈 타입 (imageQuiz, spellingQuiz, meaningQuiz, listeningQuiz)
 - 다양한 문제 수 (10, 20, 30문제)
 
+
+
+

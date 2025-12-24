@@ -55,8 +55,8 @@ const SingleWordView: React.FC<SingleWordViewProps> = ({ words, onBack }) => {
 
   if (!currentWord) {
     return (
-      <div className="single-word-container">
-        <div className="no-words">
+      <div className="sw-container">
+        <div className="sw-no-words">
           <h2>📚 단어가 없습니다</h2>
           <p>구글 시트에 단어를 입력해주세요!</p>
         </div>
@@ -65,85 +65,85 @@ const SingleWordView: React.FC<SingleWordViewProps> = ({ words, onBack }) => {
   }
 
   return (
-    <div className="single-word-container">
-      <header className="single-word-header">
-        <button className="back-button" onClick={onBack}>
+    <div className="sw-container">
+      <header className="sw-header">
+        <button className="sw-back-btn" onClick={onBack}>
           ⬅️ 메인으로
         </button>
         <h2>📚 단어 하나씩 학습</h2>
       </header>
 
-      <div className="word-progress">
-        <span className="progress-text">
+      <div className="sw-progress-area">
+        <span className="sw-progress-text">
           {currentIndex + 1} / {words.length}
         </span>
-        <div className="progress-bar">
-          <div 
-            className="progress-fill"
+        <div className="sw-progress-bar">
+          <div
+            className="sw-progress-fill"
             style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
           />
         </div>
       </div>
 
-      <div className="word-card">
-        <div className="word-header">
-          <div className="word-english">{currentWord.english}</div>
-          <div 
-            className="word-difficulty"
+      <div className="sw-card">
+        <div className="sw-word-header">
+          <div className="sw-english">{currentWord.english}</div>
+          <div
+            className="sw-difficulty"
             style={{ backgroundColor: getDifficultyColor(currentWord.difficulty || 'medium') }}
           >
             {getDifficultyText(currentWord.difficulty || 'medium')}
           </div>
         </div>
 
-        <div className="word-content">
+        <div className="sw-content">
           {showAnswer ? (
-            <div className="word-answer">
-              <div className="word-korean">🇰🇷 {currentWord.korean}</div>
+            <div className="sw-answer-box">
+              <div className="sw-korean">🇰🇷 {currentWord.korean}</div>
               {currentWord.pronunciation && (
-                <div className="word-pronunciation">
+                <div className="sw-pronunciation">
                   🔊 /{currentWord.pronunciation}/
                 </div>
               )}
               {currentWord.example && (
-                <div className="word-example">
+                <div className="sw-example">
                   💬 "{currentWord.example}"
                 </div>
               )}
               {currentWord.category && (
-                <div className="word-category">
+                <div className="sw-category">
                   🏷️ {currentWord.category}
                 </div>
               )}
             </div>
           ) : (
-            <div className="word-question">
-              <div className="question-text">이 단어의 뜻은 무엇일까요? 🤔</div>
-              <button className="show-answer-button" onClick={handleShowAnswer}>
+            <div className="sw-question-box">
+              <div className="sw-question-text">이 단어의 뜻은 무엇일까요? 🤔</div>
+              <button className="sw-show-btn" onClick={handleShowAnswer}>
                 답 보기 👀
               </button>
             </div>
           )}
         </div>
 
-        <div className="word-actions">
-          <button className="speak-button" onClick={speakWord}>
+        <div className="sw-actions">
+          <button className="sw-speak-btn" onClick={speakWord}>
             🔊 발음 듣기
           </button>
         </div>
       </div>
 
-      <div className="navigation-controls">
-        <button 
-          className="nav-button prev-button" 
+      <div className="sw-nav-controls">
+        <button
+          className="sw-nav-btn prev-button"
           onClick={handlePrevious}
           disabled={words.length <= 1}
         >
           ⬅️ 이전
         </button>
-        
-        <button 
-          className="nav-button next-button" 
+
+        <button
+          className="sw-nav-btn next-button"
           onClick={handleNext}
           disabled={words.length <= 1}
         >
@@ -151,13 +151,13 @@ const SingleWordView: React.FC<SingleWordViewProps> = ({ words, onBack }) => {
         </button>
       </div>
 
-      <div className="study-tips">
+      <div className="sw-tips">
         <h3>📖 학습 팁</h3>
         <ul>
           <li>먼저 단어를 보고 뜻을 생각해보세요</li>
           <li>발음을 듣고 따라해보세요</li>
           <li>예문을 통해 단어를 기억해보세요</li>
-          
+
         </ul>
       </div>
     </div>

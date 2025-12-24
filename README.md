@@ -1,13 +1,39 @@
-# 🎓 영어 단어 익히기 앱
+# 🎓 영어 단어 익히기 앱 (Word Study App)
 
-제미나이 AI를 활용한 영어 단어 학습 애플리케이션입니다. 발음 연습과 퀴즈 기능을 통해 효과적인 영어 학습을 도와줍니다.
+제미나이 AI를 활용한 반응형 영어 단어 학습 애플리케이션입니다. 아이들과 초보자를 위해 큰 글씨와 그림을 활용한 직관적인 디자인을 제공하며, 발음 연습과 다양한 퀴즈 게임을 통해 효과적인 학습을 지원합니다.
 
 ## ✨ 주요 기능
 
-- 📚 **단어 목록**: 구글 시트 또는 내장 샘플 데이터로 단어 학습
-- 🎤 **발음 연습**: AI 기반 발음 분석 및 피드백
-- 🧠 **퀴즈**: AI가 생성한 객관식 문제로 실력 테스트
-- 📱 **반응형 디자인**: 모바일과 데스크톱 모두 지원
+### 1. 📚 직관적인 단어 학습 (Word Card)
+- **시원한 화면 구성**: 데스크탑에서는 2열의 큰 카드 형태로, 모바일에서는 그림과 글자가 나란히 배치되는 최적화된 레이아웃을 제공합니다.
+- **큰 글씨 지원**: 남녀노소 누구나 쉽게 볼 수 있도록 가독성을 극대화했습니다.
+- **플래시 카드 모드**: 단어를 하나씩 집중해서 암기할 수 있는 전용 뷰어 제공 (그림/영어/한글 앞면 선택 가능).
+
+### 2. � 다양한 퀴즈 게임
+단순한 4지선다를 넘어, 재미있게 단어를 익힐 수 있는 여러 가지 미니 게임을 제공합니다.
+- **객관식 퀴즈**: 뜻 맞추기, 철자 맞추기 등 기본 학습.
+- **듣기 평가**: AI 음성을 듣고 정답 고르기.
+- **스펠링 게임**: 스펠링을 직접 입력하여 맞추기.
+- **빈칸 채우기**: 문장 속 빈칸에 알맞은 단어 넣기.
+- **하늘에서 음식이 내린다면**: 떨어지는 단어를 타이핑하여 맞추는 게임.
+- **보스 레이드**: 단어 문제를 풀어 보스 몬스터를 물리치는 게임.
+
+### 3. 🎤 AI 발음 코칭
+- **실시간 피드백**: 사용자의 발음을 듣고 AI가 정확도를 분석해줍니다.
+- **발음 교정**: 원어민 발음과 비교하여 개선점을 알려줍니다.
+
+### 4. 📈 학습 관리
+- **오답 노트**: 틀린 문제만 모아서 다시 풀어볼 수 있는 기능을 제공합니다.
+- **퀴즈 결과 통합**: 어떤 퀴즈를 풀더라도 통일된 결과 화면에서 점수와 틀린 단어를 확인할 수 있습니다.
+
+## �️ 최근 업데이트 (v0.2.0)
+- **UI/UX 대규모 개편**: 
+  - 단어 목록 카드의 크기를 2배로 확대하여 가독성 개선
+  - PC/모바일 반응형 레이아웃 전면 재설계 (CSS 네임스페이스 분리로 스타일 충돌 완벽 해결)
+- **기능 개선**:
+  - `WordList`와 `WordListPage` 연결 최적화
+  - 모든 퀴즈 종료 시 타이머 자동 정지 버그 수정
+  - 퀴즈 결과 화면(`QuizResult`) 표준화 및 "틀린 문제 다시 풀기" 기능 추가
 
 ## 🚀 시작하기
 
@@ -22,105 +48,32 @@ npm start
 ```
 
 ### 2. 환경 변수 설정
-
 `.env` 파일을 생성하고 다음 내용을 추가하세요:
 
 ```env
-# 제미나이 API 키 (필수)
+# 제미나이 API 키 (필수 - AI 코칭 및 퀴즈 생성용)
 REACT_APP_GEMINI_API_KEY=your_gemini_api_key_here
 
-# 구글 시트 설정 (선택사항)
+# 구글 시트 설정 (선택사항 - 나만의 단어장 연동 시)
 REACT_APP_GOOGLE_SHEET_ID=your_google_sheet_id_here
 REACT_APP_GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-### 3. 제미나이 API 키 발급
+## 📊 구글 시트 구조 (예시)
 
-1. [Google AI Studio](https://makersuite.google.com/app/apikey)에 접속
-2. API 키 생성
-3. `.env` 파일에 키 추가
-
-## 📊 구글 시트 연동 (선택사항)
-
-구글 시트를 사용하여 단어 데이터를 관리할 수 있습니다.
-
-### 시트 구조
-
-| A (영어) | B (한국어) | C (발음) | D (예문) | E (난이도) | F (카테고리) |
-|----------|------------|----------|----------|------------|--------------|
-| apple    | 사과       | /ˈæpəl/  | I eat an apple every day. | easy | food |
-| beautiful | 아름다운 | /ˈbjuːtɪfəl/ | The sunset is beautiful. | medium | adjective |
-
-### 구글 API 설정
-
-1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트 생성
-2. Google Sheets API 활성화
-3. API 키 생성
-4. 시트를 공개로 설정 (읽기 권한)
-
-## 🎯 사용법
-
-### 단어 학습
-1. 메인 화면에서 단어 목록 확인
-2. 원하는 단어 클릭하여 선택
-3. "발음 연습하기" 버튼 클릭
-
-### 발음 연습
-1. 단어의 정확한 발음 듣기
-2. 마이크로 발음 녹음 또는 텍스트 입력
-3. AI 분석 결과 확인 및 개선 제안 수신
-
-### 퀴즈
-1. "퀴즈 시작" 버튼 클릭
-2. AI가 생성한 객관식 문제 풀기
-3. 실시간 점수 확인 및 결과 분석
+| A (영어) | B (한국어) | C (발음) | D (예문) | E (난이도) | F (카테고리) | G (이미지URL) |
+|----------|------------|----------|----------|------------|--------------|---------------|
+| apple    | 사과       | /ˈæpəl/  | I eat an apple. | easy | food | https://... |
+| run      | 달리다     | /rʌn/    | He runs fast. | easy | action | https://... |
 
 ## 🛠️ 기술 스택
 
-- **Frontend**: React 18, TypeScript
+- **Frontend**: React 18, TypeScript, React Router
+- **State Management**: Context API
 - **AI**: Google Gemini API
-- **Data**: Google Sheets API
-- **Styling**: CSS3 (Flexbox, Grid)
-- **Audio**: Web Speech API
-
-## 📱 반응형 디자인
-
-- 모바일 우선 설계
-- 태블릿 및 데스크톱 최적화
-- 터치 친화적 인터페이스
-
-## 🔧 개발 스크립트
-
-```bash
-# 개발 서버 시작
-npm start
-
-# 프로덕션 빌드
-npm run build
-
-# 테스트 실행
-npm test
-
-# 코드 린팅
-npm run lint
-```
+- **TTS/STT**: Web Speech API
+- **Styling**: Pure CSS (Variable-based Design System)
 
 ## 📝 라이선스
 
 MIT License
-
-## 🤝 기여하기
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📞 지원
-
-문제가 있거나 제안사항이 있으시면 이슈를 생성해주세요.
-
----
-
-💡 **팁**: 제미나이 API 키 없이도 샘플 데이터로 앱을 테스트할 수 있습니다!

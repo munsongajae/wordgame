@@ -11,6 +11,8 @@ import FillBlankGame from '../components/FillBlankGame';
 import { useWords } from '../contexts/WordsContext';
 
 import QuizSelectionPage from '../pages/QuizSelectionPage';
+import PronunciationQuiz from '../components/PronunciationQuiz';
+import PronunciationPractice from '../components/PronunciationPractice';
 
 // CombinedQuiz wrapper to use Context
 const CombinedQuizWrapper = () => {
@@ -19,11 +21,27 @@ const CombinedQuizWrapper = () => {
     return <CombinedQuiz words={words} onBack={() => navigate(-1)} />;
 };
 
+
+
 // ListeningQuiz wrapper to use Context
 const ListeningQuizWrapper = () => {
     const { words } = useWords();
     const navigate = useNavigate();
     return <ListeningQuiz words={words} onBack={() => navigate(-1)} />;
+};
+
+// PronunciationQuiz wrapper to use Context
+const PronunciationQuizWrapper = () => {
+    const { words } = useWords();
+    const navigate = useNavigate();
+    return <PronunciationQuiz words={words} onBack={() => navigate(-1)} />;
+};
+
+// PronunciationPractice wrapper to use Context
+const PronunciationPracticeWrapper = () => {
+    const { words } = useWords();
+    const navigate = useNavigate();
+    return <PronunciationPractice word={null} words={words} onBack={() => navigate(-1)} />;
 };
 
 export const QuizRoutes: React.FC = () => {
@@ -35,6 +53,8 @@ export const QuizRoutes: React.FC = () => {
             <Route path="/meaning" element={<MeaningQuiz />} />
             <Route path="/listening" element={<ListeningQuizWrapper />} />
             <Route path="/combined" element={<CombinedQuizWrapper />} />
+            <Route path="/pronunciation" element={<PronunciationQuizWrapper />} />
+            <Route path="/pronunciation-practice" element={<PronunciationPracticeWrapper />} />
             <Route path="/spelling-game" element={<SpellingGame />} />
             <Route path="/fill-blank" element={<FillBlankGame />} />
         </Routes>

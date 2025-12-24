@@ -1,4 +1,4 @@
-.single-word-container {
+.sw-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
@@ -7,7 +7,7 @@
   color: white;
 }
 
-.single-word-header {
+.sw-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -16,7 +16,7 @@
   gap: 15px;
 }
 
-.back-button {
+.sw-back-btn {
   background: rgba(255, 255, 255, 0.2);
   color: white;
   border: none;
@@ -28,12 +28,12 @@
   backdrop-filter: blur(10px);
 }
 
-.back-button:hover {
+.sw-back-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
 
-.single-word-header h2 {
+.sw-header h2 {
   margin: 0;
   font-size: 24px;
   text-align: center;
@@ -41,11 +41,11 @@
   min-width: 200px;
 }
 
-.word-progress {
+.sw-progress-area {
   margin-bottom: 30px;
 }
 
-.progress-text {
+.sw-progress-text {
   display: block;
   text-align: center;
   font-size: 18px;
@@ -53,7 +53,7 @@
   margin-bottom: 10px;
 }
 
-.progress-bar {
+.sw-progress-bar {
   width: 100%;
   height: 8px;
   background-color: rgba(255, 255, 255, 0.3);
@@ -61,14 +61,14 @@
   overflow: hidden;
 }
 
-.progress-fill {
+.sw-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #4CAF50, #8BC34A);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
 
-.word-card {
+.sw-card {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
   padding: 30px;
@@ -78,7 +78,7 @@
   text-align: center;
 }
 
-.word-header {
+.sw-word-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -87,16 +87,17 @@
   gap: 15px;
 }
 
-.word-english {
+.sw-english {
   font-size: 48px;
   font-weight: bold;
   color: #2c3e50;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
   flex: 1;
   min-width: 200px;
+  text-align: center;
 }
 
-.word-difficulty {
+.sw-difficulty {
   padding: 8px 16px;
   border-radius: 20px;
   color: white;
@@ -106,33 +107,48 @@
   letter-spacing: 1px;
 }
 
-.word-content {
+.sw-content {
   min-height: 200px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  width: 100%;
 }
 
-.word-answer {
-  animation: fadeIn 0.5s ease-in;
+.sw-answer-box {
+  animation: swFadeIn 0.5s ease-in;
+  width: 100%;
 }
 
-.word-question {
-  animation: fadeIn 0.5s ease-in;
+.sw-question-box {
+  animation: swFadeIn 0.5s ease-in;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes swFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.question-text {
+.sw-question-text {
   font-size: 24px;
   color: #7f8c8d;
   margin-bottom: 20px;
 }
 
-.show-answer-button {
+.sw-show-btn {
   background: linear-gradient(135deg, #3498db, #2980b9);
   color: white;
   border: none;
@@ -145,26 +161,26 @@
   box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
 }
 
-.show-answer-button:hover {
+.sw-show-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
 }
 
-.word-korean {
+.sw-korean {
   font-size: 36px;
   font-weight: bold;
   color: #e74c3c;
   margin-bottom: 15px;
 }
 
-.word-pronunciation {
+.sw-pronunciation {
   font-size: 20px;
   color: #27ae60;
   margin-bottom: 15px;
   font-family: 'Courier New', monospace;
 }
 
-.word-example {
+.sw-example {
   font-size: 18px;
   color: #8e44ad;
   margin-bottom: 15px;
@@ -175,7 +191,7 @@
   border-left: 4px solid #8e44ad;
 }
 
-.word-category {
+.sw-category {
   font-size: 16px;
   color: #f39c12;
   font-weight: bold;
@@ -183,11 +199,11 @@
   letter-spacing: 1px;
 }
 
-.word-actions {
+.sw-actions {
   margin-top: 30px;
 }
 
-.speak-button {
+.sw-speak-btn {
   background: linear-gradient(135deg, #e74c3c, #c0392b);
   color: white;
   border: none;
@@ -199,12 +215,12 @@
   box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
 }
 
-.speak-button:hover {
+.sw-speak-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
 
-.navigation-controls {
+.sw-nav-controls {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -213,7 +229,7 @@
   flex-wrap: wrap;
 }
 
-.nav-button {
+.sw-nav-btn {
   background: linear-gradient(135deg, #95a5a6, #7f8c8d);
   color: white;
   border: none;
@@ -225,54 +241,52 @@
   box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
 }
 
-.nav-button:hover:not(:disabled) {
+.sw-nav-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(149, 165, 166, 0.4);
 }
 
-.nav-button:disabled {
+.sw-nav-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* 퀴즈 버튼 제거됨 */
-
-.study-tips {
+.sw-tips {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   padding: 20px;
   backdrop-filter: blur(10px);
 }
 
-.study-tips h3 {
+.sw-tips h3 {
   margin-bottom: 15px;
   text-align: center;
   font-size: 20px;
 }
 
-.study-tips ul {
+.sw-tips ul {
   list-style: none;
   padding: 0;
 }
 
-.study-tips li {
+.sw-tips li {
   padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   position: relative;
   padding-left: 20px;
 }
 
-.study-tips li:last-child {
+.sw-tips li:last-child {
   border-bottom: none;
 }
 
-.study-tips li::before {
+.sw-tips li::before {
   content: "✨";
   position: absolute;
   left: 0;
 }
 
-.no-words {
+.sw-no-words {
   text-align: center;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 15px;
@@ -280,45 +294,44 @@
   backdrop-filter: blur(10px);
 }
 
-.no-words h2 {
+.sw-no-words h2 {
   margin-bottom: 15px;
   font-size: 28px;
 }
 
-.no-words p {
+.sw-no-words p {
   font-size: 18px;
   opacity: 0.8;
 }
 
-/* 모바일 반응형 */
 @media (max-width: 768px) {
-  .single-word-container {
+  .sw-container {
     padding: 15px;
   }
-  
-  .word-card {
+
+  .sw-card {
     padding: 20px;
   }
-  
-  .word-english {
+
+  .sw-english {
     font-size: 36px;
   }
-  
-  .word-korean {
+
+  .sw-korean {
     font-size: 28px;
   }
-  
-  .word-header {
+
+  .sw-header {
     flex-direction: column;
     text-align: center;
   }
-  
-  .navigation-controls {
+
+  .sw-nav-controls {
     flex-direction: column;
     gap: 15px;
   }
-  
-  .nav-button {
+
+  .sw-nav-btn {
     width: 100%;
     max-width: 200px;
   }

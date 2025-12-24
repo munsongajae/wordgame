@@ -30,10 +30,10 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
             if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') gender = parsed.gender;
             if (parsed.accent === 'us' || parsed.accent === 'uk') accent = parsed.accent;
           }
-        } catch {}
+        } catch { }
 
         window.speechSynthesis.cancel();
-        
+
         // 음성 목록을 다시 로드 (브라우저에 따라 필요)
         const loadVoices = () => {
           return new Promise<SpeechSynthesisVoice[]>((resolve) => {
@@ -55,49 +55,49 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
           utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
           utter.rate = rate;
           utter.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
-          
+
           // 디버깅용: 사용 가능한 음성 목록 출력
           console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })));
-          
+
           if (voices.length > 0) {
             const preferLang = accent === 'uk' ? 'en-GB' : 'en-US';
-            
+
             // 1순위: 정확한 언어 매칭
             let candidates = voices.filter(v => v.lang?.toLowerCase() === preferLang.toLowerCase());
-            
+
             // 2순위: 언어 코드만 매칭 (en-US -> en)
             if (candidates.length === 0) {
               const langCode = preferLang.split('-')[0].toLowerCase();
               candidates = voices.filter(v => v.lang?.toLowerCase().startsWith(langCode));
             }
-            
+
             // 3순위: 영어 계열 모두
             if (candidates.length === 0) {
               candidates = voices.filter(v => v.lang?.toLowerCase().includes('en'));
             }
-            
+
             // 성별 필터 적용
             let selectedVoice = null;
             if (candidates.length > 0) {
               if (gender === 'female') {
-                selectedVoice = candidates.find(v => 
+                selectedVoice = candidates.find(v =>
                   /female|woman|amy|emma|olivia|salli|joanna|ivy|kimberly|kendra|zira|susan/i.test(v.name)
                 ) || candidates[0];
               } else if (gender === 'male') {
-                selectedVoice = candidates.find(v => 
+                selectedVoice = candidates.find(v =>
                   /male|man|brian|daniel|arthur|matthew|justin|joey|david|mark|alex/i.test(v.name)
                 ) || candidates[0];
               } else {
                 selectedVoice = candidates[0];
               }
             }
-            
+
             if (selectedVoice) {
               utter.voice = selectedVoice;
               console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
             }
           }
-          
+
           window.speechSynthesis.speak(utter);
         }).catch(() => {
           // 폴백: 기본 설정으로 재생
@@ -114,7 +114,7 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
   };
 
   return (
-    <div className="word-list-container">
+    <div className="wl-container">
       <h2>단어 목록 ({words.length}개)</h2>
       <div
         style={{
@@ -130,37 +130,34 @@ const WordList: React.FC<WordListProps> = ({ words, onWordSelect, selectedWord }
       >
         🔊 단어를 누르면 발음이 재생됩니다
       </div>
-      <div className="word-list">
+      <div className="wl-grid">
         {words.map((word) => (
           <div
             key={word.id}
-            className={`word-item ${selectedWord?.id === word.id ? 'selected' : ''}`}
+            className={`wl-card ${selectedWord?.id === word.id ? 'selected' : ''}`}
             onClick={() => { speakWord(word.english); onWordSelect(word); }}
           >
             {/* 그림을 먼저 표시 */}
             {word.imageUrl && !imageErrors.has(word.id) && (
-              <div className="word-image-container">
+              <div className="wl-image-box">
                 <img
                   src={word.imageUrl}
                   alt={word.english}
-                  className="word-image"
+                  className="wl-image"
                   onError={() => handleImageError(word.id)}
                 />
               </div>
             )}
-            
+
             {/* 텍스트 정보를 다음에 표시 */}
-            <div className="word-main">
-              <div className="word-english">{word.english}</div>
-              <div className="word-korean">{word.korean}</div>
+            <div className="wl-content">
+              <div className="wl-english">{word.english}</div>
+              <div className="wl-korean">{word.korean}</div>
             </div>
-            
-            {/* 세부 정보를 마지막에 표시 */}
-            <div className="word-details"></div>
-            
+
             {/* 예문은 별도로 표시 */}
             {word.example && (
-              <div className="word-example">
+              <div className="wl-example">
                 "{word.example}"
               </div>
             )}

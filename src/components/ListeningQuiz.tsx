@@ -3,45 +3,47 @@ import { logAttempt, saveSession, updateProgress, getWrongWordIdsForSession } fr
 import { addRecord, isNewRecord, createRecordFromQuizResult } from '../services/rankingService';
 import { Word } from '../types/word';
 
+import { QuizResult } from './common/QuizResult';
+
 // 정답 효과음 재생 함수 (사용자 제공 파일 사용)
 const playCorrectSound = () => {
   try {
     console.log('듣기 퀴즈 정답 사운드 재생 시도 - success.mp3 파일 사용');
-    
+
     // 사용자가 제공한 success.mp3 파일 재생
     const audio = new Audio('/success.mp3');
     audio.volume = 0.7;
-    
+
     audio.play()
       .then(() => {
         console.log('듣기 퀴즈 정답 사운드 재생 완료 - success.mp3');
       })
       .catch((error) => {
         console.error('success.mp3 재생 실패, 폴백 사운드 재생:', error);
-        
+
         // 실패 시 기본 Web Audio API 소리 재생
         try {
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
-          
+
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
-          
+
           // 높은 음 (띵)
           oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
           oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-          
+
           // 낮은 음 (동)
           oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
           oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.3);
-          
+
           gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
           gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
-          
+
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.4);
-          
+
           console.log('듣기 퀴즈 폴백 정답 사운드 재생 완료');
         } catch (fallbackError) {
           console.error('듣기 퀴즈 폴백 사운드도 실패:', fallbackError);
@@ -56,18 +58,18 @@ const playCorrectSound = () => {
 const playRecordSound = () => {
   try {
     console.log('듣기 퀴즈 신기록 사운드 재생 시도 - record.mp3 파일 사용');
-    
+
     // 사용자가 제공한 record.mp3 파일 재생
     const audio = new Audio('/record.mp3');
     audio.volume = 0.7;
-    
+
     audio.play()
       .then(() => {
         console.log('듣기 퀴즈 신기록 사운드 재생 완료 - record.mp3');
       })
       .catch((error) => {
         console.error('record.mp3 재생 실패, 폴백 사운드 재생:', error);
-        
+
         // 실패 시 기본 Web Audio API 소리 재생 (축하하는 느낌의 소리)
         try {
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -101,7 +103,7 @@ const playRecordSound = () => {
             oscillator2.stop();
             audioContext.close();
           }, 800);
-          
+
           console.log('듣기 퀴즈 폴백 신기록 사운드 재생 완료');
         } catch (fallbackError) {
           console.error('듣기 퀴즈 폴백 신기록 사운드도 실패:', fallbackError);
@@ -116,18 +118,18 @@ const playRecordSound = () => {
 const playWrongSound = () => {
   try {
     console.log('듣기 퀴즈 오답 사운드 재생 시도 - wrong.mp3 파일 사용');
-    
+
     // 사용자가 제공한 wrong.mp3 파일 재생
     const audio = new Audio('/wrong.mp3');
     audio.volume = 0.7;
-    
+
     audio.play()
       .then(() => {
         console.log('듣기 퀴즈 오답 사운드 재생 완료 - wrong.mp3');
       })
       .catch((error) => {
         console.error('wrong.mp3 재생 실패, 폴백 사운드 재생:', error);
-        
+
         // 실패 시 기본 Web Audio API 소리 재생
         try {
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -147,7 +149,7 @@ const playWrongSound = () => {
 
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.25);
-          
+
           console.log('듣기 퀴즈 폴백 오답 사운드 재생 완료');
         } catch (fallbackError) {
           console.error('듣기 퀴즈 폴백 오답 사운드도 실패:', fallbackError);
@@ -233,14 +235,14 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   useEffect(() => {
     if (finished || !current) return;
     setTimeLeft(10);
-    
+
     // 첫 번째 문제 시작 시에만 퀴즈 시작 시간 기록
     if (index === 0 && quizStartTime === 0) {
       setQuizStartTime(Date.now());
     }
-    
+
     // 자동 재생 제거 - 사용자가 직접 듣기 버튼을 눌러야 함
-    
+
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -252,8 +254,8 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
             console.log(`시간 초과! 점수 변화 없음 (문제 ${index + 1}/${questions.length})`);
             playWrongSound();
             setWrongQuestions(prevW => (cur && prevW.some(w => w.id === cur.id) ? prevW : cur ? [...prevW, cur] : prevW));
-            try { if (cur) logAttempt({ sessionId, mode: 'listeningQuiz', wordId: cur.id, correct: isCorrect }); } catch {}
-            try { if (cur) updateProgress({ wordId: cur.id, correct: isCorrect }); } catch {}
+            try { if (cur) logAttempt({ sessionId, mode: 'listeningQuiz', wordId: cur.id, correct: isCorrect }); } catch { }
+            try { if (cur) updateProgress({ wordId: cur.id, correct: isCorrect }); } catch { }
             setSelected(-1 as any);
             // 시간 초과 시에도 자동으로 다음 문제로 이동
             if (autoNextTimeoutRef.current !== null) {
@@ -273,7 +275,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
         return nextValue;
       });
     }, 1000);
-    
+
     return () => {
       clearInterval(timer);
     };
@@ -303,10 +305,10 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
 
   const handleCheckAnswer = () => {
     if (selected === null || !current || !options[selected] || isCorrect !== null) return;
-    
+
     const correct = options[selected].id === current.id;
     setIsCorrect(correct);
-    
+
     if (correct) {
       setScore(s => {
         const newScore = s + 1;
@@ -319,11 +321,11 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
       playWrongSound();
       setWrongQuestions(prev => (prev.some(w => w.id === current.id) ? prev : [...prev, current]));
     }
-    
+
     // log attempt & SRS
     logAttempt({ sessionId, mode: 'listeningQuiz', wordId: current.id, correct });
     updateProgress({ wordId: current.id, correct });
-    
+
     // 2초 후 다음 문제로 자동 이동
     setTimeout(() => {
       next();
@@ -357,12 +359,12 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
           const durationSec = Math.round((Date.now() - quizStartTime) / 1000);
           saveSession({ mode: 'listeningQuiz', score: scoreRef.current, total: questions.length, durationSec }).then(id => setSessionId(id));
         }
-        
+
         // 순위 기록 업데이트
         const totalTimeMs = Date.now() - quizStartTime;
         const finalScore = scoreRef.current; // 최신 점수 사용
         const accuracy = Math.round((finalScore / questions.length) * 100);
-        
+
         console.log('퀴즈 완료 - 순위 기록 확인:', {
           score,
           finalScore,
@@ -374,7 +376,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
           totalType: typeof questions.length,
           calculation: `(${finalScore} / ${questions.length}) * 100 = ${(finalScore / questions.length) * 100}`
         });
-        
+
         // 100% 정답률이면 무조건 기록 저장 (신기록 여부와 관계없이)
         (async () => {
           if (accuracy === 100) {
@@ -396,10 +398,10 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
             }
           }
         })();
-        
+
         // 엔딩 사운드 재생 (신기록 여부와 관계없이)
         playRecordSound();
-        
+
         return;
       }
     }
@@ -415,95 +417,95 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
     }
     try {
       console.log('speakWord 호출:', text);
-      
+
       // 이전 음성을 확실히 취소 (여러 번 시도)
       window.speechSynthesis.cancel();
-      
+
       // 잠시 후 한 번 더 취소 (브라우저에 따라 즉시 취소되지 않을 수 있음)
       setTimeout(() => {
         window.speechSynthesis.cancel();
       }, 50);
-      
+
       // 취소 후 충분한 지연을 두고 새 음성 재생
       setTimeout(() => {
         // 음성 목록을 다시 로드
-      const loadVoices = () => {
-        return new Promise<SpeechSynthesisVoice[]>((resolve) => {
-          const voices = window.speechSynthesis.getVoices();
-          if (voices.length > 0) {
-            resolve(voices);
-          } else {
-            window.speechSynthesis.onvoiceschanged = () => {
-              resolve(window.speechSynthesis.getVoices());
-            };
-            setTimeout(() => resolve([]), 1000);
-          }
-        });
-      };
-
-      // 전역 TTS 설정 읽기
-      let rate = 1.0 as number;
-      let gender: 'default' | 'male' | 'female' = 'default';
-      let accent: 'us' | 'uk' = 'us';
-      try {
-        const raw = localStorage.getItem('ttsSettings');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (typeof parsed.rate === 'number') rate = parsed.rate;
-          if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') gender = parsed.gender;
-          if (parsed.accent === 'us' || parsed.accent === 'uk') accent = parsed.accent;
-        }
-      } catch {}
-
-      loadVoices().then(voices => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-        utterance.rate = rate;
-        utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
-        
-        console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })));
-        
-        if (voices.length > 0) {
-          const preferLang = accent === 'uk' ? 'en-GB' : 'en-US';
-          
-          let candidates = voices.filter(v => v.lang?.toLowerCase() === preferLang.toLowerCase());
-          if (candidates.length === 0) {
-            const langCode = preferLang.split('-')[0].toLowerCase();
-            candidates = voices.filter(v => v.lang?.toLowerCase().startsWith(langCode));
-          }
-          if (candidates.length === 0) {
-            candidates = voices.filter(v => v.lang?.toLowerCase().includes('en'));
-          }
-          
-          let selectedVoice = null;
-          if (candidates.length > 0) {
-            if (gender === 'female') {
-              selectedVoice = candidates.find(v => 
-                /female|woman|amy|emma|olivia|salli|joanna|ivy|kimberly|kendra|zira|susan/i.test(v.name)
-              ) || candidates[0];
-            } else if (gender === 'male') {
-              selectedVoice = candidates.find(v => 
-                /male|man|brian|daniel|arthur|matthew|justin|joey|david|mark|alex/i.test(v.name)
-              ) || candidates[0];
+        const loadVoices = () => {
+          return new Promise<SpeechSynthesisVoice[]>((resolve) => {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+              resolve(voices);
             } else {
-              selectedVoice = candidates[0];
+              window.speechSynthesis.onvoiceschanged = () => {
+                resolve(window.speechSynthesis.getVoices());
+              };
+              setTimeout(() => resolve([]), 1000);
+            }
+          });
+        };
+
+        // 전역 TTS 설정 읽기
+        let rate = 1.0 as number;
+        let gender: 'default' | 'male' | 'female' = 'default';
+        let accent: 'us' | 'uk' = 'us';
+        try {
+          const raw = localStorage.getItem('ttsSettings');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.rate === 'number') rate = parsed.rate;
+            if (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'default') gender = parsed.gender;
+            if (parsed.accent === 'us' || parsed.accent === 'uk') accent = parsed.accent;
+          }
+        } catch { }
+
+        loadVoices().then(voices => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+          utterance.rate = rate;
+          utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+
+          console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })));
+
+          if (voices.length > 0) {
+            const preferLang = accent === 'uk' ? 'en-GB' : 'en-US';
+
+            let candidates = voices.filter(v => v.lang?.toLowerCase() === preferLang.toLowerCase());
+            if (candidates.length === 0) {
+              const langCode = preferLang.split('-')[0].toLowerCase();
+              candidates = voices.filter(v => v.lang?.toLowerCase().startsWith(langCode));
+            }
+            if (candidates.length === 0) {
+              candidates = voices.filter(v => v.lang?.toLowerCase().includes('en'));
+            }
+
+            let selectedVoice = null;
+            if (candidates.length > 0) {
+              if (gender === 'female') {
+                selectedVoice = candidates.find(v =>
+                  /female|woman|amy|emma|olivia|salli|joanna|ivy|kimberly|kendra|zira|susan/i.test(v.name)
+                ) || candidates[0];
+              } else if (gender === 'male') {
+                selectedVoice = candidates.find(v =>
+                  /male|man|brian|daniel|arthur|matthew|justin|joey|david|mark|alex/i.test(v.name)
+                ) || candidates[0];
+              } else {
+                selectedVoice = candidates[0];
+              }
+            }
+
+            if (selectedVoice) {
+              utterance.voice = selectedVoice;
+              console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
             }
           }
-          
-          if (selectedVoice) {
-            utterance.voice = selectedVoice;
-            console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
-          }
-        }
-        
-        window.speechSynthesis.speak(utterance);
-      }).catch(() => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-        utterance.rate = rate;
-        utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
-        window.speechSynthesis.speak(utterance);
-      });
+
+          window.speechSynthesis.speak(utterance);
+        }).catch(() => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+          utterance.rate = rate;
+          utterance.pitch = gender === 'male' ? 0.8 : gender === 'female' ? 1.3 : 1.0;
+          window.speechSynthesis.speak(utterance);
+        });
       }, 250); // 취소 후 250ms 지연 (더 안전하게)
     } catch (e) {
       console.error('발음 재생 오류:', e);
@@ -514,18 +516,18 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
   const playCountdownBeep = () => {
     try {
       console.log('듣기 퀴즈 타이머 사운드 재생 시도 - timer.mp3 파일 사용');
-      
+
       // 사용자가 제공한 timer.mp3 파일 재생
       const audio = new Audio('/timer.mp3');
       audio.volume = 0.5;
-      
+
       audio.play()
         .then(() => {
           console.log('듣기 퀴즈 타이머 사운드 재생 완료 - timer.mp3');
         })
         .catch((error) => {
           console.error('timer.mp3 재생 실패, 폴백 사운드 재생:', error);
-          
+
           // 실패 시 기본 Web Audio API 소리 재생
           try {
             const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
@@ -540,7 +542,7 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
             gainNode.connect(audioContext.destination);
             oscillator.start();
             oscillator.stop(audioContext.currentTime + COUNTDOWN_BEEP_DURATION);
-            
+
             console.log('듣기 퀴즈 폴백 타이머 사운드 재생 완료');
           } catch (fallbackError) {
             console.error('듣기 퀴즈 폴백 타이머 사운드도 실패:', fallbackError);
@@ -596,391 +598,203 @@ export default function ListeningQuiz({ words, onBack }: ListeningQuizProps) {
           <div style={{ fontWeight: 800, color: 'var(--color-primary)' }}>{score}</div>
         </header>
 
-      {hasEnough && questionCount !== null && !finished && current && (
-        <>
-          {/* Question Area */}
-          <div className="question-area">
-            {/* 듣기 퀴즈 설명 */}
-            <div style={{ 
-              textAlign: 'center', 
-              margin: '20px auto 40px',
-              padding: '20px',
-              backgroundColor: '#e3f2fd',
-              borderRadius: '12px',
-              border: '2px solid #2196F3',
-              maxWidth: '500px'
-            }}>
-              <div style={{ fontSize: '20px', marginBottom: '10px' }}>🎧</div>
-              <div style={{ fontSize: '16px', color: '#1976d2', fontWeight: 'bold' }}>
-                발음을 듣고 정답을 선택하세요
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
-                듣기 버튼을 눌러서 발음을 들어보세요
-              </div>
-            </div>
-            <div style={{ color: 'var(--color-slate)', fontWeight: 700 }}>
-              ⏰ {timeLeft}초
-            </div>
-          </div>
-
-          {/* 듣기 버튼 */}
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <button
-              onClick={() => speakWord(current.english)}
-              style={{
-                padding: '15px 30px',
-                fontSize: '18px',
-                backgroundColor: '#FF9800',
-                color: '#fff',
-                border: 'none',
+        {hasEnough && questionCount !== null && !finished && current && (
+          <>
+            {/* Question Area */}
+            <div className="question-area">
+              {/* 듣기 퀴즈 설명 */}
+              <div style={{
+                textAlign: 'center',
+                margin: '20px auto 40px',
+                padding: '20px',
+                backgroundColor: '#e3f2fd',
                 borderRadius: '12px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(255,152,0,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                margin: '0 auto',
-                fontWeight: 'bold'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#F57C00';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,152,0,0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#FF9800';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,152,0,0.3)';
-              }}
-            >
-              🎧 듣기
-            </button>
-          </div>
+                border: '2px solid #2196F3',
+                maxWidth: '500px'
+              }}>
+                <div style={{ fontSize: '20px', marginBottom: '10px' }}>🎧</div>
+                <div style={{ fontSize: '16px', color: '#1976d2', fontWeight: 'bold' }}>
+                  발음을 듣고 정답을 선택하세요
+                </div>
+                <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+                  듣기 버튼을 눌러서 발음을 들어보세요
+                </div>
+              </div>
+              <div style={{ color: 'var(--color-slate)', fontWeight: 700 }}>
+                ⏰ {timeLeft}초
+              </div>
+            </div>
 
-          {/* 선택지들 */}
-          <div className="options" style={{ 
-            display: 'grid', 
-            gap: '12px', 
-            gridTemplateColumns: '1fr', 
-            justifyItems: 'center', 
-            maxWidth: '520px', 
-            margin: '0 auto' 
-          }}>
-            {options.map((w, i) => {
-              const isThisCorrect = selected !== null && w.id === current.id;
-              const isThisWrong = selected === i && isCorrect !== null && !isCorrect;
-              return (
-                <button
-                  key={w.id}
-                  onClick={() => handleSelect(i)}
-                  className={`option-button ${isThisCorrect ? 'correct' : ''} ${isThisWrong ? 'incorrect' : ''}`}
-                  disabled={selected !== null || timeLeft === 0 || isCorrect !== null}
-                  style={{
-                    fontSize: '24px',
-                    lineHeight: '1.3',
-                    width: '400px',
-                    textAlign: 'center',
-                    padding: '20px 30px',
-                    borderRadius: '14px',
-                    border: '2px solid #e0e0e0',
-                    backgroundColor: selected === null
-                      ? '#fff'
-                      : isCorrect !== null
-                        ? (isThisCorrect ? '#4CAF50' : (isThisWrong ? '#F44336' : '#f5f5f5'))
-                        : (selected === i ? '#2196F3' : '#f5f5f5'),
-                    color: selected === null
-                      ? '#333'
-                      : isCorrect !== null
-                        ? (isThisCorrect || isThisWrong ? '#fff' : '#666')
-                        : (selected === i ? '#fff' : '#666'),
-                    boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
-                    transition: 'all 0.2s ease',
-                    cursor: timeLeft === 0 || isCorrect !== null ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {w.english}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 확인 버튼 */}
-          {selected !== null && isCorrect === null && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              marginTop: '20px' 
-            }}>
+            {/* 듣기 버튼 */}
+            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
               <button
-                onClick={handleCheckAnswer}
-                disabled={selected === null}
+                onClick={() => speakWord(current.english)}
                 style={{
                   padding: '15px 30px',
                   fontSize: '18px',
-                  fontWeight: 'bold',
                   backgroundColor: '#FF9800',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: selected === null ? 'not-allowed' : 'pointer',
-                  opacity: selected === null ? 0.6 : 1,
-                  minHeight: '60px',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-                onMouseEnter={(e) => {
-                  if (selected !== null) {
-                    e.currentTarget.style.backgroundColor = '#F57C00';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selected !== null) {
-                    e.currentTarget.style.backgroundColor = '#FF9800';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }
-                }}
-              >
-                ✅ 정답 확인
-              </button>
-            </div>
-          )}
-
-          {/* 정답/오답 표시 */}
-          {isCorrect !== null && (
-            <div style={{
-              fontSize: '24px',
-              fontWeight: 'bold',
-              margin: '20px 0',
-              padding: '15px',
-              borderRadius: '10px',
-              backgroundColor: isCorrect ? '#e8f5e8' : '#fde8e8',
-              color: isCorrect ? '#2e7d32' : '#c62828',
-              textAlign: 'center'
-            }}>
-              {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
-            </div>
-          )}
-        </>
-      )}
-
-      {hasEnough && finished && (
-        <div className="question-area" style={{ textAlign: 'center', marginTop: 20 }}>
-          <h3 style={{ color: '#333', fontSize: '28px', marginBottom: '20px' }}>🎯 퀴즈 결과</h3>
-          
-          {isNewRecordAchieved && (
-            <div style={{ 
-              backgroundColor: '#fff3cd', 
-              border: '2px solid #ffc107', 
-              borderRadius: '12px', 
-              padding: '15px', 
-              margin: '10px 0',
-              color: '#856404',
-              animation: 'pulse 2s infinite'
-            }}>
-              🏆 신기록 달성! 순위에 기록되었습니다!
-            </div>
-          )}
-
-          {/* 점수 표시 */}
-          <div style={{ 
-            fontSize: 36, 
-            fontWeight: 800, 
-            color: '#2196F3', 
-            margin: '20px 0',
-            textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}>
-            {score} / {questions.length}
-          </div>
-
-          {/* 정답률과 시간 표시 */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: '30px', 
-            margin: '20px 0',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ 
-              backgroundColor: '#e3f2fd', 
-              padding: '15px 25px', 
-              borderRadius: '12px',
-              border: '2px solid #2196F3'
-            }}>
-              <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>정답률</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
-                {Math.round((score / questions.length) * 100)}%
-              </div>
-            </div>
-            <div style={{ 
-              backgroundColor: '#f3e5f5', 
-              padding: '15px 25px', 
-              borderRadius: '12px',
-              border: '2px solid #9c27b0'
-            }}>
-              <div style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>풀이 시간</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7b1fa2' }}>
-                {Math.round((Date.now() - quizStartTime) / 1000)}초
-              </div>
-            </div>
-          </div>
-
-          {/* 점수에 따른 코멘트 */}
-          {(() => {
-            const accuracy = Math.round((score / questions.length) * 100);
-            const timeInSeconds = Math.round((Date.now() - quizStartTime) / 1000);
-            const timePerQuestion = Math.round(timeInSeconds / questions.length);
-            
-            let comment = '';
-            let emoji = '';
-            let bgColor = '';
-            let textColor = '';
-            
-            if (accuracy === 100) {
-              if (timePerQuestion <= 3) {
-                comment = '완벽합니다! 🚀 듣기 실력이 훌륭하네요!';
-                emoji = '🏆';
-                bgColor = '#d4edda';
-                textColor = '#155724';
-              } else if (timePerQuestion <= 6) {
-                comment = '훌륭합니다! ✨ 모든 발음을 정확하게 들으셨어요!';
-                emoji = '🎉';
-                bgColor = '#d1ecf1';
-                textColor = '#0c5460';
-              } else {
-                comment = '잘했습니다! 🎯 신중하게 들어서 완벽한 점수를 받으셨네요!';
-                emoji = '🌟';
-                bgColor = '#fff3cd';
-                textColor = '#856404';
-              }
-            } else if (accuracy >= 80) {
-              comment = '좋은 성과입니다! 👍 듣기 실력이 늘고 있어요!';
-              emoji = '💪';
-              bgColor = '#e2e3e5';
-              textColor = '#383d41';
-            } else if (accuracy >= 60) {
-              comment = '괜찮습니다! 📚 계속 듣기 연습을 하면 더 좋아질 거예요!';
-              emoji = '📖';
-              bgColor = '#f8d7da';
-              textColor = '#721c24';
-            } else {
-              comment = '아쉽네요! 🔄 발음을 더 자주 들어보세요!';
-              emoji = '💪';
-              bgColor = '#f5c6cb';
-              textColor = '#721c24';
-            }
-            
-            return (
-              <div style={{ 
-                backgroundColor: bgColor, 
-                color: textColor,
-                padding: '20px', 
-                borderRadius: '12px', 
-                margin: '20px 0',
-                border: '2px solid',
-                borderColor: textColor === '#155724' ? '#c3e6cb' : 
-                           textColor === '#0c5460' ? '#bee5eb' :
-                           textColor === '#856404' ? '#ffeaa7' :
-                           textColor === '#383d41' ? '#d6d8db' :
-                           '#f1b0b7'
-              }}>
-                <div style={{ fontSize: '32px', marginBottom: '10px' }}>{emoji}</div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', lineHeight: '1.4' }}>
-                  {comment}
-                </div>
-                {accuracy !== 100 && (
-                  <div style={{ fontSize: '14px', marginTop: '10px', opacity: 0.8 }}>
-                    💡 영어 발음을 더 자주 들으면 듣기 실력이 향상될 거예요!
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-          
-          <div style={{ 
-            display: 'flex', 
-            gap: '15px', 
-            justifyContent: 'center', 
-            marginTop: '30px',
-            flexWrap: 'wrap'
-          }}>
-            {(wrongQuestions.length > 0 || sessionId) && (
-              <button
-                onClick={async () => {
-                  let retryWords = wrongQuestions;
-                  if (sessionId) {
-                    try {
-                      const ids = await getWrongWordIdsForSession(sessionId);
-                      if (ids.length > 0) {
-                        const dict = new Map(eligible.map(w => [w.id, w] as const));
-                        retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof eligible;
-                      }
-                    } catch {}
-                  }
-                  if (retryWords.length === 0) return;
-                  setQuestions(retryWords);
-                  setWrongQuestions([]);
-                  setIndex(0);
-                  setSelected(null);
-                  setScore(0);
-                  setFinished(false);
-                }}
-                style={{
-                  padding: '15px 25px',
-                  backgroundColor: '#1976d2',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '12px',
                   cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                  transition: 'all 0.3s ease'
+                  boxShadow: '0 4px 12px rgba(255,152,0,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  margin: '0 auto',
+                  fontWeight: 'bold'
                 }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1565c0';
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F57C00';
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(25, 118, 210, 0.4)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,152,0,0.4)';
                 }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1976d2';
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FF9800';
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(25, 118, 210, 0.3)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,152,0,0.3)';
                 }}
               >
-                🔄 틀린 문제 다시 풀기
+                🎧 듣기
               </button>
+            </div>
+
+            {/* 선택지들 */}
+            <div className="options" style={{
+              display: 'grid',
+              gap: '12px',
+              gridTemplateColumns: '1fr',
+              justifyItems: 'center',
+              maxWidth: '520px',
+              margin: '0 auto'
+            }}>
+              {options.map((w, i) => {
+                const isThisCorrect = selected !== null && w.id === current.id;
+                const isThisWrong = selected === i && isCorrect !== null && !isCorrect;
+                return (
+                  <button
+                    key={w.id}
+                    onClick={() => handleSelect(i)}
+                    className={`option-button ${isThisCorrect ? 'correct' : ''} ${isThisWrong ? 'incorrect' : ''}`}
+                    disabled={selected !== null || timeLeft === 0 || isCorrect !== null}
+                    style={{
+                      fontSize: '24px',
+                      lineHeight: '1.3',
+                      width: '400px',
+                      textAlign: 'center',
+                      padding: '20px 30px',
+                      borderRadius: '14px',
+                      border: '2px solid #e0e0e0',
+                      backgroundColor: selected === null
+                        ? '#fff'
+                        : isCorrect !== null
+                          ? (isThisCorrect ? '#4CAF50' : (isThisWrong ? '#F44336' : '#f5f5f5'))
+                          : (selected === i ? '#2196F3' : '#f5f5f5'),
+                      color: selected === null
+                        ? '#333'
+                        : isCorrect !== null
+                          ? (isThisCorrect || isThisWrong ? '#fff' : '#666')
+                          : (selected === i ? '#fff' : '#666'),
+                      boxShadow: selected === null ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'all 0.2s ease',
+                      cursor: timeLeft === 0 || isCorrect !== null ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {w.english}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 확인 버튼 */}
+            {selected !== null && isCorrect === null && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginTop: '20px'
+              }}>
+                <button
+                  onClick={handleCheckAnswer}
+                  disabled={selected === null}
+                  style={{
+                    padding: '15px 30px',
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    backgroundColor: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: selected === null ? 'not-allowed' : 'pointer',
+                    opacity: selected === null ? 0.6 : 1,
+                    minHeight: '60px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selected !== null) {
+                      e.currentTarget.style.backgroundColor = '#F57C00';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selected !== null) {
+                      e.currentTarget.style.backgroundColor = '#FF9800';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
+                  }}
+                >
+                  ✅ 정답 확인
+                </button>
+              </div>
             )}
-            <button
-              onClick={onBack}
-              style={{
-                padding: '15px 25px',
-                backgroundColor: '#4CAF50',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontSize: '16px',
+
+            {/* 정답/오답 표시 */}
+            {isCorrect !== null && (
+              <div style={{
+                fontSize: '24px',
                 fontWeight: 'bold',
-                boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = '#388e3c';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(76, 175, 80, 0.4)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = '#4CAF50';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.3)';
-              }}
-            >
-              🏠 메인으로 돌아가기
-            </button>
-          </div>
-        </div>
-      )}
+                margin: '20px 0',
+                padding: '15px',
+                borderRadius: '10px',
+                backgroundColor: isCorrect ? '#e8f5e8' : '#fde8e8',
+                color: isCorrect ? '#2e7d32' : '#c62828',
+                textAlign: 'center'
+              }}>
+                {isCorrect ? '정답입니다! 🎉' : `오답입니다. 정답: ${current.english}`}
+              </div>
+            )}
+          </>
+        )}
+
+        {hasEnough && finished && (
+          <QuizResult
+            score={score}
+            total={questions.length}
+            duration={Math.round((Date.now() - quizStartTime) / 1000)}
+            isNewRecord={isNewRecordAchieved}
+            wrongWords={wrongQuestions}
+            onRetryWrong={(wrongQuestions.length > 0 || sessionId) ? async () => {
+              let retryWords = wrongQuestions;
+              if (sessionId) {
+                try {
+                  const ids = await getWrongWordIdsForSession(sessionId);
+                  if (ids.length > 0) {
+                    const dict = new Map(eligible.map(w => [w.id, w] as const));
+                    retryWords = ids.map(id => dict.get(id)).filter(Boolean) as typeof eligible;
+                  }
+                } catch { }
+              }
+              if (retryWords.length === 0) return;
+              setQuestions(retryWords);
+              setWrongQuestions([]);
+              setIndex(0);
+              setSelected(null);
+              setScore(0);
+              setFinished(false);
+            } : undefined}
+            onBack={onBack}
+          />
+        )}
       </div>
     </div>
   );

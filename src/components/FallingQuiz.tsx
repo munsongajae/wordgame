@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Word } from '../types/word';
+import { QuizResult } from './common/QuizResult';
 
 type FallingQuizProps = {
   words: Word[];
@@ -62,7 +63,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   const [invaders, setInvaders] = useState<Invader[]>([]);
   // gameOver 상태 제거 - 이제 점수 감점으로 처리
   const [gameKey, setGameKey] = useState(0); // 새 게임을 위한 키
-  const [explosions, setExplosions] = useState<Array<{id: string, x: number, y: number, timestamp: number}>>([]); // 폭발 효과
+  const [explosions, setExplosions] = useState<Array<{ id: string, x: number, y: number, timestamp: number }>>([]); // 폭발 효과
 
   const timerRef = useRef<number | null>(null);
   const autoNextRef = useRef<number | null>(null);
@@ -92,7 +93,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       });
     }
     return qs;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eligible, questionCount, gameKey]);
 
   const current = questions[index];
@@ -109,46 +110,46 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       gain.connect(ctx.destination);
       osc.start();
       setTimeout(() => { osc.stop(); ctx.close(); }, durationMs);
-    } catch {}
+    } catch { }
   }, []);
 
   // 오답 사운드 (사용자 제공 파일 사용)
   const playWrongSound = useCallback(() => {
     try {
       console.log('화성 침공 오답 사운드 재생 시도 - wrong.mp3 파일 사용');
-      
+
       // 사용자가 제공한 wrong.mp3 파일 재생
       const audio = new Audio('/wrong.mp3');
       audio.volume = 0.7;
-      
+
       audio.play()
         .then(() => {
           console.log('화성 침공 오답 사운드 재생 완료 - wrong.mp3');
         })
         .catch((error) => {
           console.error('wrong.mp3 재생 실패, 폴백 사운드 재생:', error);
-          
+
           // 실패 시 기본 Web Audio API 소리 재생
           try {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            
+
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(300, ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.25);
             gain.gain.setValueAtTime(0.25, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-            
+
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start();
-            
+
             setTimeout(() => {
               osc.stop();
               ctx.close();
             }, 250);
-            
+
             console.log('화성 침공 폴백 오답 사운드 재생 완료');
           } catch (fallbackError) {
             console.error('화성 침공 폴백 오답 사운드도 실패:', fallbackError);
@@ -164,25 +165,25 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   const playRecordSound = useCallback(() => {
     try {
       console.log('화성 침공 신기록 사운드 재생 시도 - record.mp3 파일 사용');
-      
+
       // 사용자가 제공한 record.mp3 파일 재생
       const audio = new Audio('/record.mp3');
       audio.volume = 0.7;
-      
+
       audio.play()
         .then(() => {
           console.log('화성 침공 신기록 사운드 재생 완료 - record.mp3');
         })
         .catch((error) => {
           console.error('record.mp3 재생 실패, 폴백 사운드 재생:', error);
-          
+
           // 실패 시 기본 Web Audio API 소리 재생 (축하하는 느낌의 소리)
           try {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             const osc1 = ctx.createOscillator();
             const osc2 = ctx.createOscillator();
             const gain = ctx.createGain();
-            
+
             // 화음으로 축하하는 느낌
             osc1.type = 'sine';
             osc1.frequency.setValueAtTime(523, ctx.currentTime); // C5
@@ -209,7 +210,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
               osc2.stop();
               ctx.close();
             }, 800);
-            
+
             console.log('화성 침공 폴백 신기록 사운드 재생 완료');
           } catch (fallbackError) {
             console.error('화성 침공 폴백 신기록 사운드도 실패:', fallbackError);
@@ -224,53 +225,53 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   const playCorrectSound = useCallback(() => {
     try {
       console.log('정답 사운드 재생 시도 - success.mp3 파일 사용');
-      
+
       // 사용자가 제공한 success.mp3 파일 재생
       const audio = new Audio('/success.mp3');
       audio.volume = 0.7;
-      
+
       audio.play()
         .then(() => {
           console.log('정답 사운드 재생 완료 - success.mp3');
         })
         .catch((error) => {
           console.error('success.mp3 재생 실패, 폴백 사운드 재생:', error);
-          
+
           // 실패 시 기본 Web Audio API 소리 재생
           try {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            
+
             const osc1 = ctx.createOscillator();
             const osc2 = ctx.createOscillator();
             const gain = ctx.createGain();
-            
+
             osc1.type = 'sine';
             osc1.frequency.setValueAtTime(523, ctx.currentTime);
             osc1.frequency.exponentialRampToValueAtTime(659, ctx.currentTime + 0.1);
             osc1.frequency.exponentialRampToValueAtTime(784, ctx.currentTime + 0.2);
-            
+
             osc2.type = 'sine';
             osc2.frequency.setValueAtTime(659, ctx.currentTime);
             osc2.frequency.exponentialRampToValueAtTime(784, ctx.currentTime + 0.1);
             osc2.frequency.exponentialRampToValueAtTime(1047, ctx.currentTime + 0.2);
-            
+
             gain.gain.setValueAtTime(0, ctx.currentTime);
             gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-            
+
             osc1.connect(gain);
             osc2.connect(gain);
             gain.connect(ctx.destination);
-            
+
             osc1.start();
             osc2.start();
-            
+
             setTimeout(() => {
               osc1.stop();
               osc2.stop();
               ctx.close();
             }, 1000);
-            
+
             console.log('폴백 정답 사운드 재생 완료');
           } catch (fallbackError) {
             console.error('폴백 사운드도 실패:', fallbackError);
@@ -285,21 +286,21 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   // 4개 선택지 침공자 한꺼번에 생성 함수
   const spawnAllInvaders = useCallback(() => {
     if (!current || !gameAreaRef.current) return;
-    
+
     const gameAreaWidth = gameAreaRef.current.offsetWidth;
     const cardWidth = Math.min(280, gameAreaWidth * 0.2); // 화면 크기에 따라 카드 너비 조정
     const cardSpacing = Math.max(10, (gameAreaWidth - (4 * cardWidth)) / 3); // 카드 간격 계산
-    
+
     const newInvaders: Invader[] = [];
-    
+
     // 4개 선택지를 모두 침공자로 생성
     current.options.forEach((option, index) => {
       const isCorrect = option.english === current.correctEnglish;
-      
+
       // 반응형 위치 계산
       const startX = cardWidth / 2 + (index * (cardWidth + cardSpacing));
       const xPercentage = (startX / gameAreaWidth) * 100;
-      
+
       const newInvader: Invader = {
         id: `invader-${invaderIdRef.current++}`,
         english: option.english,
@@ -311,26 +312,26 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       };
       newInvaders.push(newInvader);
     });
-    
+
     setInvaders(prev => [...prev, ...newInvaders]);
   }, [current]);
 
   // 침공자 업데이트 (위치 이동 및 충돌 검사)
   const updateInvaders = useCallback(() => {
     if (!gameAreaRef.current) return;
-    
+
     const gameAreaHeight = GAME_AREA_HEIGHT;
     const optionsAreaTop = gameAreaHeight - OPTIONS_HEIGHT;
-    
+
     setInvaders(prev => {
       const updated = prev.map(invader => ({
         ...invader,
         y: invader.y + invader.speed
       }));
-      
+
       // 보기 영역에 닿은 침공자들 확인
       const reachedOptions = updated.filter(invader => invader.y >= optionsAreaTop);
-      
+
       if (reachedOptions.length > 0) {
         // 정답이 아닌 침공자가 도달했으면 점수 감점
         const wrongInvaders = reachedOptions.filter(invader => !invader.isCorrect);
@@ -342,12 +343,12 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
             return newScore;
           });
           playWrongSound(); // 오답 사운드 재생
-          
+
           // 도달한 오답 침공자들 제거
           return updated.filter(invader => !reachedOptions.includes(invader) || invader.isCorrect);
         }
       }
-      
+
       // 화면을 벗어난 침공자들 제거
       return updated.filter(invader => invader.y < gameAreaHeight + 100);
     });
@@ -356,17 +357,17 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   // 게임 루프 (침공자 생성, 업데이트, 타이머)
   useEffect(() => {
     if (finished || !current) return;
-    
+
     setTimeLeft(ROUND_TIME_SEC);
     timeLeftRef.current = ROUND_TIME_SEC;
     setInvaders([]); // 새로운 문제 시작 시 침공자 초기화
 
     // 4개 선택지 침공자 한꺼번에 생성 (게임 시작 시 한 번만)
     spawnAllInvaders();
-    
+
     // 침공자 업데이트 타이머 (60fps)
     const updateInterval = setInterval(updateInvaders, 16);
-    
+
     // 게임 타이머
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     timerRef.current = window.setInterval(() => {
@@ -377,7 +378,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       if (next === 0) {
         // 시간 종료 시 - 점수 없음, 사운드 없음 (시간초과는 실패로 처리)
         console.log('⏰ 시간초과! 정답이 있어도 점수 없음');
-        
+
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         if (autoNextRef.current) { clearTimeout(autoNextRef.current); }
         autoNextRef.current = window.setTimeout(() => {
@@ -391,7 +392,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
       if (autoNextRef.current) { clearTimeout(autoNextRef.current); autoNextRef.current = null; }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, finished, current, spawnAllInvaders, updateInvaders]);
 
   // 브라우저 크기 변경 시 침공자 위치 재조정
@@ -401,18 +402,18 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
         // 기존 침공자들을 새로운 위치로 재배치
         setInvaders(prev => prev.map(invader => {
           if (!gameAreaRef.current) return invader;
-          
+
           const gameAreaWidth = gameAreaRef.current.offsetWidth;
           const cardWidth = Math.min(280, gameAreaWidth * 0.2);
           const cardSpacing = Math.max(10, (gameAreaWidth - (4 * cardWidth)) / 3);
-          
+
           // 현재 침공자의 인덱스 찾기 (x 위치로 추정)
           const currentIndex = Math.round((invader.x / 100) * 4);
           const clampedIndex = Math.max(0, Math.min(3, currentIndex));
-          
+
           const startX = cardWidth / 2 + (clampedIndex * (cardWidth + cardSpacing));
           const xPercentage = (startX / gameAreaWidth) * 100;
-          
+
           return {
             ...invader,
             x: xPercentage,
@@ -435,9 +436,9 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       y: y,
       timestamp: Date.now()
     };
-    
+
     setExplosions(prev => [...prev, newExplosion]);
-    
+
     // 1초 후 폭발 효과 제거
     setTimeout(() => {
       setExplosions(prev => prev.filter(exp => exp.id !== explosionId));
@@ -447,22 +448,22 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   // 침공자 클릭 처리
   const handleInvaderClick = (invader: Invader) => {
     if (selectedRef.current) return;
-    
+
     setSelected(invader.english);
-    
+
     // 폭발 효과 생성 (침공자 위치에서)
     createExplosion(invader.x, invader.y);
-    
+
     // 침공자 제거
     setInvaders(prev => prev.filter(inv => inv.id !== invader.id));
-    
+
     if (invader.isCorrect) {
       setScore(s => s + 1);
       playCorrectSound(); // 고품질 정답 효과음
     } else {
       playBeep(200, 300); // 오답 효과음
     }
-    
+
     // 즉시 다음 문제로 예약
     if (autoNextRef.current) { clearTimeout(autoNextRef.current); }
     autoNextRef.current = window.setTimeout(() => { goNext(); }, AUTO_NEXT_DELAY_MS);
@@ -513,19 +514,21 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
 
   if (finished) {
     return (
-      <div className="quiz-container" style={{ textAlign: 'center', background: 'linear-gradient(135deg, #4CAF50, #2E7D32)' }}>
-        <button className="back-button" onClick={onBack}>← 뒤로가기</button>
-        <h2 style={{ color: '#fff', marginTop: 20 }}>🎉 지구 방어 성공!</h2>
-        <div style={{ fontSize: 32, fontWeight: 800, color: '#fff', margin: '20px 0' }}>{score} / {questions.length}</div>
-        <div style={{ fontSize: 18, color: '#fff', margin: '20px 0' }}>
-          화성 침공을 성공적으로 막아냈습니다!<br />
-          지구는 안전합니다! 🌍
-        </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={resetAll} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: '#fff', color: '#2E7D32', cursor: 'pointer', fontWeight: 'bold' }}>🔄 다시 도전</button>
-          <button onClick={startNewGame} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: '#fff', color: '#2E7D32', cursor: 'pointer', fontWeight: 'bold' }}>🎮 새 게임</button>
-          <button onClick={onBack} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: '#fff', color: '#2E7D32', cursor: 'pointer', fontWeight: 'bold' }}>🏠 메인으로</button>
-        </div>
+      <div className="quiz-container" style={{ textAlign: 'center' }}>
+        <QuizResult
+          score={score}
+          total={questions.length}
+          duration={0} // 게임 특성상 시간은 크게 의미가 없거나 별도 계산 필요
+          onRestart={resetAll}
+          onRetryWrong={() => {
+            // 틀린 문제만 다시 풀기 로직 구현
+            // FallingQuiz는 틀린 문제 기록 방식이 다르므로 별도 로직 필요할 수 있음
+            // 현재 구조상 resetAll로 대체하거나, 별도의 wrongQuestions 로직 추가 필요
+            // 여기서는 일단 전체 재시작으로 구현하거나, 필요한 경우 추가 구현
+            resetAll();
+          }}
+          onBack={onBack}
+        />
       </div>
     );
   }
@@ -533,7 +536,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
   return (
     <div className="quiz-container" style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', color: '#fff' }}>
       <button className="back-button" onClick={onBack} style={{ color: '#fff', borderColor: '#fff' }}>← 뒤로가기</button>
-      
+
       {/* 게임 헤더 */}
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h2 style={{ color: '#ff6b6b', margin: '10px 0', fontSize: 28 }}>🚀 화성 침공 방어 작전</h2>
@@ -545,10 +548,10 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
             ⏱️ 시간: <span style={{ color: timeLeft <= 3 ? '#ff4444' : '#fff' }}>{timeLeft}s</span>
           </div>
           <div style={{ fontSize: 18, fontWeight: 'bold' }}>
-            👽 남은 화성인: <span style={{ 
-              color: (questions.length - index) === 0 ? '#4CAF50' : 
-                     (questions.length - index) <= 1 ? '#ff8800' : 
-                     (questions.length - index) <= 2 ? '#ffaa00' : '#4CAF50' 
+            👽 남은 화성인: <span style={{
+              color: (questions.length - index) === 0 ? '#4CAF50' :
+                (questions.length - index) <= 1 ? '#ff8800' :
+                  (questions.length - index) <= 2 ? '#ffaa00' : '#4CAF50'
             }}>
               {questions.length - index}
             </span>
@@ -561,20 +564,20 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
         {current.type === 'image' && (
           <>
             <div style={{ fontSize: 16, color: '#ffeb3b', marginBottom: 10 }}>🖼️ 그림에 맞는 화성인을 찾아 격추하세요!</div>
-            <img 
-              src={current.options.find(o => o.english === current.correctEnglish)?.imageUrl} 
-              alt={current.correctEnglish} 
-              style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 15, border: '3px solid #ff6b6b', boxShadow: '0 0 20px rgba(255,107,107,0.5)' }} 
+            <img
+              src={current.options.find(o => o.english === current.correctEnglish)?.imageUrl}
+              alt={current.correctEnglish}
+              style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 15, border: '3px solid #ff6b6b', boxShadow: '0 0 20px rgba(255,107,107,0.5)' }}
             />
           </>
         )}
         {current.type === 'spelling' && (
           <>
             <div style={{ fontSize: 16, color: '#ffeb3b', marginBottom: 10 }}>🔤 철자에 맞는 화성인을 찾아 격추하세요!</div>
-            <img 
-              src={current.options.find(o => o.english === current.correctEnglish)?.imageUrl} 
-              alt={current.correctEnglish} 
-              style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 15, border: '3px solid #ff6b6b', boxShadow: '0 0 20px rgba(255,107,107,0.5)' }} 
+            <img
+              src={current.options.find(o => o.english === current.correctEnglish)?.imageUrl}
+              alt={current.correctEnglish}
+              style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 15, border: '3px solid #ff6b6b', boxShadow: '0 0 20px rgba(255,107,107,0.5)' }}
             />
           </>
         )}
@@ -587,11 +590,11 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
       </div>
 
       {/* 게임 영역 */}
-      <div 
+      <div
         ref={gameAreaRef}
-        style={{ 
-          position: 'relative', 
-          height: `${GAME_AREA_HEIGHT}px`, 
+        style={{
+          position: 'relative',
+          height: `${GAME_AREA_HEIGHT}px`,
           background: 'linear-gradient(180deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
           borderRadius: 15,
           overflow: 'hidden',
@@ -616,7 +619,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
           backgroundSize: '200px 100px',
           animation: 'twinkle 3s linear infinite'
         }} />
-        
+
         {/* 침공자들 */}
         {invaders.map((invader) => (
           <button
@@ -646,7 +649,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
               animation: 'invaderGlow 1s ease-in-out infinite alternate'
             }}
           >
-            <div style={{ 
+            <div style={{
               fontSize: Math.round((invader.cardWidth || 280) * 0.12), // 이모지 크기 약간 축소
               marginBottom: Math.round((invader.cardWidth || 280) * 0.01), // 마진을 절반으로 줄임
               lineHeight: 1.2,
@@ -654,13 +657,13 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
             }}>
               👽
             </div>
-            <div style={{ 
+            <div style={{
               fontSize: (() => {
                 // 카드 크기와 단어 길이에 따라 폰트 크기 동적 조정
                 const cardWidth = invader.cardWidth || 280;
                 const wordLength = invader.english.length;
                 const baseFontSize = Math.round(cardWidth * 0.22); // 기본 폰트 크기 약간 축소
-                
+
                 // 단어 길이에 따른 조정
                 if (wordLength <= 6) return baseFontSize;
                 if (wordLength <= 8) return Math.round(baseFontSize * 0.86);
@@ -671,7 +674,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
                 if (wordLength <= 22) return Math.round(baseFontSize * 0.43);
                 return Math.round(baseFontSize * 0.36);
               })(),
-              fontWeight: 'bold', 
+              fontWeight: 'bold',
               textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
               lineHeight: 1.3, // lineHeight 증가로 텍스트 잘림 방지
               whiteSpace: 'nowrap',
@@ -691,7 +694,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
             </div>
           </button>
         ))}
-        
+
         {/* 폭발 효과들 */}
         {explosions.map((explosion) => (
           <div
@@ -711,7 +714,7 @@ export default function FallingQuiz({ words, onBack }: FallingQuizProps) {
             💥
           </div>
         ))}
-        
+
         {/* 보기 영역 (지구 방어선) */}
         <div style={{
           position: 'absolute',

@@ -4,6 +4,8 @@ import { useWords } from '../contexts/WordsContext';
 import { QuizHeader } from '../components/common/QuizHeader';
 import { speakText } from '../utils/tts';
 
+import WordList from '../components/WordList';
+
 export default function WordListPage() {
     const navigate = useNavigate();
     const { words } = useWords();
@@ -94,29 +96,15 @@ export default function WordListPage() {
             </div>
 
             {/* Content Area */}
-            <div className="word-list" style={{ padding: '8px 20px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ padding: '8px 20px', flex: 1, overflowY: 'auto' }}>
                 {viewMode === 'list' ? (
-                    <div style={{ display: 'grid', gap: 10 }}>
-                        {words.map(word => (
-                            <div key={word.id} style={{
-                                padding: 15,
-                                backgroundColor: 'white',
-                                borderRadius: 10,
-                                boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 15
-                            }}>
-                                {word.imageUrl && (
-                                    <img src={word.imageUrl} alt={word.english} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8 }} />
-                                )}
-                                <div>
-                                    <div style={{ fontWeight: 'bold', fontSize: 18 }}>{word.english}</div>
-                                    <div style={{ color: '#666' }}>{word.korean}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    <WordList
+                        words={words}
+                        onWordSelect={(word) => {
+                            // Opt: switch to flashcard mode focusing on this word?
+                            // For now just play TTS as handled by WordList internally
+                        }}
+                    />
                 ) : (
                     /* Flashcard View */
                     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 0' }}>

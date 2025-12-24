@@ -13,6 +13,8 @@ export default function QuizSelectionPage() {
         { id: 'listening', title: '🎧 듣기 퀴즈', desc: '발음을 듣고 단어를 맞추세요', path: '/quiz/listening' },
         { id: 'spelling-game', title: '🔤 철자 게임', desc: '섞인 글자 올바르게 배열하기', path: '/quiz/spelling-game' },
         { id: 'fillblank', title: '🕳️ 빈칸 채우기', desc: '문장의 빈칸에 알맞은 단어를 넣으세요', path: '/quiz/fill-blank' },
+        { id: 'pronunciation', title: '🗣️ 발음 퀴즈', desc: '단어를 읽고 정답을 맞추세요 (음성인식)', path: '/quiz/pronunciation' },
+        { id: 'pronunciation-practice', title: '🎙️ 발음 연습', desc: '자유롭게 발음을 연습해보세요', path: '/quiz/pronunciation-practice' },
     ];
 
     return (

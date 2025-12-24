@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Word } from '../types/word';
 import { PronunciationResult } from '../types/word';
-import { GeminiService } from '../services/geminiService';
+
 import WordList from './WordList';
 import './PronunciationPractice.css';
 
@@ -12,7 +12,7 @@ class SpeechRecognitionService {
 
   constructor() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
+
     if (SpeechRecognition) {
       this.recognition = new SpeechRecognition();
       this.isSpeechSupported = true;
@@ -40,6 +40,8 @@ class SpeechRecognitionService {
     }
 
     return new Promise((resolve, reject) => {
+      let hasResult = false;
+
       this.recognition.onstart = () => {
         console.log('🎤 음성 인식 시작...');
       };
@@ -47,16 +49,24 @@ class SpeechRecognitionService {
       this.recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         console.log('📝 인식된 텍스트:', transcript);
+        hasResult = true;
         resolve(transcript);
       };
 
       this.recognition.onerror = (event: any) => {
         console.error('❌ 음성 인식 오류:', event.error);
-        reject(new Error(`음성 인식 오류: ${event.error}`));
+        if (event.error === 'no-speech') {
+          reject(new Error('음성이 감지되지 않았습니다.'));
+        } else {
+          reject(new Error(`음성 인식 오류: ${event.error}`));
+        }
       };
 
       this.recognition.onend = () => {
         console.log('🔚 음성 인식 종료');
+        if (!hasResult) {
+          reject(new Error('음성 인식이 결과 없이 종료되었습니다.'));
+        }
       };
 
       this.recognition.start();
@@ -144,10 +154,10 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
       setIsRecognizing(true);
       setUserInput('');
       setResult(null);
-      
+
       const transcript = await speechRecognition.recognizeSpeech();
       setUserInput(transcript);
-      
+
       // 자동으로 분석 시작
       await analyzePronunciation(transcript);
     } catch (error) {
@@ -160,7 +170,7 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
 
   const analyzePronunciation = async (inputText?: string) => {
     const textToAnalyze = inputText || userInput;
-    
+
     if (!textToAnalyze.trim()) {
       alert('발음을 입력하거나 음성으로 녹음해주세요.');
       return;
@@ -173,8 +183,25 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
 
     setIsAnalyzing(true);
     try {
-      const analysisResult = await GeminiService.analyzePronunciation(selectedWord.english, textToAnalyze);
-      setResult(analysisResult);
+      // Simple local comparison
+      const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const target = normalize(selectedWord.english);
+      const input = normalize(textToAnalyze);
+
+      const isCorrect = target === input;
+      const accuracy = isCorrect ? 100 : 0;
+
+      const localResult = {
+        accuracy: accuracy,
+        feedback: isCorrect
+          ? "완벽해요! (Perfect)"
+          : `아쉬워요. 들린 단어: "${textToAnalyze}"`,
+        suggestions: isCorrect
+          ? ["다음 단어도 연습해보세요!"]
+          : ["다시 한 번 또박또박 말해보세요."]
+      };
+
+      setResult(localResult);
     } catch (error) {
       console.error('발음 분석 오류:', error);
       alert('발음 분석에 실패했습니다. 다시 시도해주세요.');
@@ -199,7 +226,7 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
           </button>
           <h2>🎤 발음 연습하기</h2>
         </div>
-        
+
         <div style={{ padding: '20px', textAlign: 'center' }}>
           <h3>발음 연습할 단어를 선택하세요</h3>
           <p>단어를 클릭하면 발음 연습을 시작할 수 있습니다.</p>
@@ -228,14 +255,14 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
           {/* 그림을 먼저 가운데 정렬로 표시 */}
           {selectedWord.imageUrl && (
             <div className="word-image-container">
-              <img 
-                src={selectedWord.imageUrl} 
+              <img
+                src={selectedWord.imageUrl}
                 alt={selectedWord.english}
                 className="word-image"
               />
             </div>
           )}
-          
+
           {/* 텍스트를 그림 아래로 이동 */}
           <div className="word-text-container">
             <h1 className="word-english">{selectedWord.english}</h1>
@@ -257,16 +284,16 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
           <button className="speak-button" onClick={speakWord}>
             🔊 발음 듣기
           </button>
-          
+
           <div className="recording-section">
-            <button 
+            <button
               className={`record-button ${isRecording ? 'recording' : ''}`}
               onClick={startRecording}
               disabled={isRecording}
             >
               {isRecording ? '🎤 녹음 중...' : '🎤 녹음하기'}
             </button>
-            
+
             {audioUrl && (
               <button className="play-button" onClick={playAudio}>
                 ▶️ 재생
@@ -277,7 +304,7 @@ const PronunciationPractice: React.FC<PronunciationPracticeProps> = ({ word, wor
 
         <div className="input-section">
           <div className="speech-input-section">
-            <button 
+            <button
               className={`speech-recognition-button ${isRecognizing ? 'recognizing' : ''}`}
               onClick={handleSpeechRecognition}
               disabled={isRecognizing || isAnalyzing}

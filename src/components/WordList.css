@@ -1,138 +1,167 @@
-.word-list-container {
+/* Version 4.0 - 2x Size Mode */
+
+.wl-container {
   padding: 20px;
-  max-width: 800px;
+  /* 10px -> 20px */
+  max-width: 1200px;
+  /* Increased max-width */
   margin: 0 auto;
 }
 
-.word-list-container h2 {
+.wl-container h2 {
   color: #333;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  /* 12px -> 24px */
   text-align: center;
+  font-size: 48px;
+  /* 24px -> 48px */
 }
 
-.word-list {
+.wl-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  /* 300px -> 400px for larger cards */
+  gap: 20px;
+  /* 10px -> 20px */
   padding: 0;
 }
 
-.word-item {
+.wl-card {
   background: #fff;
   border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
+  /* 1px -> 2px */
+  border-radius: 16px;
+  /* 8px -> 16px */
+  padding: 20px;
+  /* 10px -> 20px */
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 24px;
+  /* 12px -> 24px */
 }
 
-.word-image-container {
-  order: 1;
-}
-
-.word-main {
-  order: 2;
-}
-
-.word-details {
-  order: 3;
-}
-
-.word-item:hover {
+.wl-card:hover {
   border-color: #2196F3;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
 }
 
-.word-item.selected {
+.wl-card.selected {
   border-color: #2196F3;
   background-color: #f3f8ff;
-  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+  box-shadow: 0 8px 16px rgba(33, 150, 243, 0.3);
 }
 
-.word-main {
-  margin-bottom: 0;
-}
-
-.word-image-container {
-  width: 96px;
-  height: 96px;
-  border-radius: 12px;
+.wl-image-box {
+  width: 110px;
+  /* 55px -> 110px */
+  height: 110px;
+  /* 55px -> 110px */
+  border-radius: 16px;
+  /* 8px -> 16px */
   overflow: hidden;
   background: #f5f5f5;
   flex-shrink: 0;
+  order: 1;
 }
 
-.word-image {
+.wl-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.word-list .word-english {
-  font-size: 40px !important;
-  font-weight: bold;
-  color: #2196F3;
-  margin-bottom: 4px;
+.wl-content {
+  flex: 1;
+  min-width: 0;
+  order: 2;
 }
 
-.word-korean {
-  font-size: 8px;
+.wl-english {
+  font-size: 50px !important;
+  /* 25px -> 50px */
+  font-weight: 700;
+  color: #2196F3;
+  margin-bottom: 8px;
+  /* 4px -> 8px */
+  line-height: 1.2;
+  word-wrap: break-word;
+}
+
+.wl-korean {
+  font-size: 28px;
+  /* 14px -> 28px */
   color: #333;
   font-weight: 500;
+  word-break: keep-all;
 }
 
-.word-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+.wl-details {
+  order: 3;
+  display: none;
 }
 
-.word-pronunciation {
-  font-size: 14px;
-  color: #666;
-  font-style: italic;
-}
-
-.word-difficulty {
-  color: white;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-  min-width: 50px;
-}
-
-.word-example {
-  font-size: 14px;
+.wl-example {
+  font-size: 24px;
+  /* 12px -> 24px */
   color: #666;
   font-style: italic;
   background-color: #f5f5f5;
-  padding: 8px;
-  border-radius: 6px;
-  margin-top: 8px;
+  padding: 12px;
+  /* 6px -> 12px */
+  border-radius: 8px;
+  /* 4px -> 8px */
+  margin-top: 12px;
+  /* 6px -> 12px */
+  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
-  .word-list {
-    grid-template-columns: 1fr;
-  }
-  
-  .word-list-container {
+  .wl-container {
     padding: 16px;
   }
-  
-  .word-list .word-english {
-    font-size: 40px !important;
+
+  .wl-grid {
+    gap: 16px;
+    grid-template-columns: 1fr;
+    /* Mobile: 1 Column */
   }
-  
-  .word-korean {
-    font-size: 7px;
+
+  .wl-card {
+    padding: 16px;
+    gap: 16px;
+    flex-direction: row;
+    /* Horizontal layout: Image Left | Text Right */
+    text-align: left;
+    /* Left align text */
+    align-items: center;
+    /* Vertically center content */
+  }
+
+  .wl-english {
+    font-size: 32px !important;
+    /* Slightly smaller for mobile but still large */
+    margin-bottom: 4px;
+  }
+
+  .wl-image-box {
+    width: 80px;
+    /* Adequate size for mobile list */
+    height: 80px;
+    margin-bottom: 0;
+    /* Remove bottom margin since it's side-by-side */
+  }
+
+  .wl-korean {
+    font-size: 18px;
+  }
+
+  .wl-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 }

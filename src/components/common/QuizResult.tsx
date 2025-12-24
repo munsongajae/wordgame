@@ -8,6 +8,7 @@ interface QuizResultProps {
     isNewRecord?: boolean;
     wrongWords?: Word[];
     onRestart?: () => void;
+    onRetryWrong?: () => void;
     onBack: () => void;
 }
 
@@ -18,6 +19,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
     isNewRecord = false,
     wrongWords = [],
     onRestart,
+    onRetryWrong,
     onBack,
 }) => {
     const accuracy = Math.round((score / total) * 100);
@@ -122,7 +124,26 @@ export const QuizResult: React.FC<QuizResultProps> = ({
             </div>
 
             {/* 버튼들 */}
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '30px' }}>
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '30px', flexWrap: 'wrap' }}>
+                {onRetryWrong && (
+                    <button
+                        onClick={onRetryWrong}
+                        style={{
+                            padding: '15px 30px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            backgroundColor: '#1976d2',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                            transition: 'all 0.2s ease',
+                        }}
+                    >
+                        🔄 틀린 문제 다시 풀기
+                    </button>
+                )}
                 {onRestart && (
                     <button
                         onClick={onRestart}

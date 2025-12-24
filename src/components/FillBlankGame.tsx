@@ -4,6 +4,7 @@ import { Word } from '../types/word';
 import { useWords } from '../contexts/WordsContext';
 import { logAttempt, saveSession, updateProgress } from '../services/trackingService';
 import { createRecordFromQuizResult, isNewRecord, addRecord } from '../services/rankingService';
+import { QuizResult } from './common/QuizResult';
 
 type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
@@ -110,6 +111,7 @@ const FillBlankGame: React.FC = () => {
   const [currentBlankIndex, setCurrentBlankIndex] = useState(0);
   const [options, setOptions] = useState<string[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [wrongQuestions, setWrongQuestions] = useState<Word[]>([]);
 
   const scoreRef = useRef(0);
   const autoNextTimeoutRef = useRef<number | null>(null);
@@ -207,6 +209,7 @@ const FillBlankGame: React.FC = () => {
             logAttempt({ sessionId, mode: 'fillBlankGame', wordId: current.id, correct: false });
             updateProgress({ wordId: current.id, correct: false });
             setIsCorrect(false);
+            setWrongQuestions(prev => [...prev, current]);
 
             if (autoNextTimeoutRef.current !== null) {
               clearTimeout(autoNextTimeoutRef.current);
@@ -289,6 +292,7 @@ const FillBlankGame: React.FC = () => {
       playWrongSound();
       logAttempt({ sessionId, mode: 'fillBlankGame', wordId: current.id, correct: false });
       updateProgress({ wordId: current.id, correct: false });
+      setWrongQuestions(prev => [...prev, current]);
     }
 
     setTimeout(() => {
@@ -342,7 +346,7 @@ const FillBlankGame: React.FC = () => {
       });
 
       setFinished(true);
-      
+
       // 엔딩 사운드 재생 (신기록 여부와 관계없이)
       playRecordSound();
 
@@ -493,45 +497,37 @@ const FillBlankGame: React.FC = () => {
   }
 
   if (finished) {
-    const accuracy = Math.round((scoreRef.current / questions.length) * 100);
+    const duration = Math.round((Date.now() - quizStartTime) / 1000);
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <div className="card" style={{ textAlign: 'center', maxWidth: 400 }}>
-          <h2 className="card-title">🎉 퀴즈 완료!</h2>
-          {showNewRecord && <div style={{ color: 'var(--color-accent)', fontWeight: 800, marginBottom: 16 }}>🏆 신기록 달성!</div>}
-
-          <div className="stats-grid" style={{ marginTop: 24 }}>
-            <div className="stat-item">
-              <div className="stat-value">{scoreRef.current}</div>
-              <div className="stat-label">점수</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-value">{accuracy}%</div>
-              <div className="stat-label">정답률</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => {
-              setQuestions(pickRandom(words, questionCount || 50));
-              setIndex(0);
-              setScore(0);
-              setFinished(false);
-              setQuizStartTime(0);
-              setShowNewRecord(false);
-            }} style={{ flex: 1 }}>다시 도전</button>
-            <button className="btn btn-secondary" onClick={() => {
-              setQuestionCount(null);
-              setQuestions([]);
-              setIndex(0);
-              setScore(0);
-              setFinished(false);
-              setQuizStartTime(0);
-              setShowNewRecord(false);
-            }} style={{ flex: 1 }}>새 게임</button>
-          </div>
-          <button className="btn btn-outline" onClick={() => navigate('/quiz')} style={{ marginTop: 12, width: '100%' }}>메인으로</button>
-        </div>
+        <QuizResult
+          score={scoreRef.current}
+          total={questions.length}
+          duration={duration}
+          isNewRecord={showNewRecord}
+          wrongWords={wrongQuestions}
+          onRestart={() => {
+            setQuestions(pickRandom(words, questionCount || 50));
+            setIndex(0);
+            setScore(0);
+            setFinished(false);
+            setQuizStartTime(0);
+            setShowNewRecord(false);
+            setWrongQuestions([]);
+          }}
+          onRetryWrong={wrongQuestions.length > 0 ? () => {
+            // 틀린 문제로 재시작
+            setQuestions(wrongQuestions);
+            setIndex(0);
+            setScore(0);
+            setFinished(false);
+            setQuizStartTime(0);
+            setShowNewRecord(false);
+            setWrongQuestions([]);
+            // 시간 등 초기화 필요하면 추가
+          } : undefined}
+          onBack={() => navigate('/quiz')}
+        />
       </div>
     );
   }

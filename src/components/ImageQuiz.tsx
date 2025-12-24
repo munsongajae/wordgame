@@ -42,7 +42,7 @@ export default function ImageQuiz() {
   const currentQuestion = questions[index] || null;
 
   // 타이머
-  const { timeLeft, reset: resetTimer } = useTimer({
+  const { timeLeft, reset: resetTimer, pause: pauseTimer } = useTimer({
     onExpire: useCallback(() => {
       if (selected === null && currentQuestion) {
         handleTimeExpire();
@@ -50,6 +50,13 @@ export default function ImageQuiz() {
     }, [selected, currentQuestion]),
     onThreeSeconds: playTimer,
   });
+
+  // 퀴즈 종료 시 타이머 정지
+  useEffect(() => {
+    if (finished) {
+      pauseTimer();
+    }
+  }, [finished, pauseTimer]);
 
   // 퀴즈 초기화
   useEffect(() => {
@@ -202,7 +209,7 @@ export default function ImageQuiz() {
           }
         }
       })();
-      
+
       // 엔딩 사운드 재생 (신기록 여부와 관계없이)
       playRecord();
       return;
@@ -278,6 +285,17 @@ export default function ImageQuiz() {
           isNewRecord={isNewRecordAchieved}
           wrongWords={wrongQuestions}
           onRestart={handleRestart}
+          onRetryWrong={wrongQuestions.length > 0 ? () => {
+            setQuestions(wrongQuestions);
+            setWrongQuestions([]);
+            setIndex(0);
+            setSelected(null);
+            setScore(0);
+            setFinished(false);
+            setIsNewRecordAchieved(false);
+            resetTimer();
+            setQuizStartTime(Date.now());
+          } : undefined}
           onBack={() => navigate(-1)}
         />
       </div>
